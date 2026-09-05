@@ -11,11 +11,11 @@ Identitas proyek:
 - Author: Andika Fadil (`@andikafadil28`).
 - Lisensi: MIT, `Copyright (c) 2026 Andika Fadil`.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1 Project Foundation dan Phase 2 D1 Database selesai serta terverifikasi pada 5 September 2026.
+- Status: Phase 1 Project Foundation, Phase 2 D1 Database, dan Phase 3 Authentication/Authorization selesai serta terverifikasi pada 5 September 2026.
 
 # CURRENT
 
-Fokus berikutnya: **Phase 3 - Authentication dan Authorization**. Mulai dari konfigurasi Cloudflare Access secara step-by-step, lalu implementasikan identity middleware, user mapping, ownership guard, dan test. Jangan memasukkan email atau identifier pribadi ke Git.
+Fokus berikutnya: **Phase 4 - Core Transactions**. Implementasikan CRUD income/expense, kategori default dan custom, pagination/filter, ringkasan individu-gabungan, Trash/restore/purge, serta idempotency. Formulaikan terlebih dahulu service layer transaksi sebelum menghubungkan ke router, dan gunakan prepared statement serta ownership guard pada seluruh mutation. Jangan memasukkan email atau identifier pribadi ke Git.
 
 # ARCHITECTURE
 
@@ -114,12 +114,12 @@ Fokus berikutnya: **Phase 3 - Authentication dan Authorization**. Mulai dari kon
 
 ## Phase 3 - Authentication dan Authorization
 
-- [ ] Konfigurasi Cloudflare Access dengan allowlist dua email.
-- [ ] Buat identity middleware dan mapping email ke user D1.
-- [ ] Terapkan ownership guard pada seluruh mutation.
-- [ ] Lindungi semua endpoint selain health dan Telegram webhook.
-- [ ] Nonaktifkan direct access melalui `workers.dev` pada production.
-- [ ] Tambahkan unauthorized, forbidden, dan ownership tests.
+- [x] Konfigurasi Cloudflare Access dengan allowlist dua email.
+- [x] Buat identity middleware dan mapping email ke user D1.
+- [x] Terapkan ownership guard pada seluruh mutation.
+- [x] Lindungi semua endpoint selain health dan Telegram webhook.
+- [x] Nonaktifkan direct access melalui `workers.dev` pada production.
+- [x] Tambahkan unauthorized, forbidden, ownership, dan spoofing tests.
 
 ## Phase 4 - Core Transactions
 

@@ -1,0 +1,4 @@
+{
+  "ACCESS_TEAM_DOMAIN": "https://team-name.cloudflareaccess.com",
+  "ACCESS_AUD": "64-karakter-hex-aud-tag-dari-access-application"
+}

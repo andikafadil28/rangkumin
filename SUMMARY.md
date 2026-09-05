@@ -13,7 +13,7 @@
 
 # CURRENT
 
-**Phase 1 - Project Foundation dan Phase 2 - D1 Database selesai serta terverifikasi pada 5 September 2026.**
+**Phase 1 - Project Foundation, Phase 2 - D1 Database, dan Phase 3 - Authentication/Authorization selesai serta terverifikasi pada 5 September 2026.**
 
 Yang sudah tersedia:
 
@@ -26,14 +26,20 @@ Yang sudah tersedia:
 - Seeder idempotent berisi dua user dummy serta 13 kategori untuk local/remote development; production tidak memiliki data dummy.
 - Scheduled Trash purge berjalan harian sekitar pukul 00:15 WIB.
 - Strategi migration dan D1 Time Travel terdokumentasi di `docs/database-operations.md`.
-- Verifikasi final: empty-database rehearsal, constraint check, remote migration, lint, format, typecheck, 4 test, development/production build, dan dependency audit lulus.
+- Cloudflare Access dengan allowlist dua email, One-Time PIN, cookies aman, dan akses `workers.dev` production nonaktif.
+- Identity middleware memetakan Cloudflare Access ke user D1 via prepared statement; pada production email dibaca dari `Cf-Access-Jwt-Assertion` yang diverifikasi signature/issuer/audience-nya memakai `jose` melawan JWKS team domain. Header email dummy hanya untuk local development.
+- Ownership guard siap (404/403) untuk seluruh mutation transaksi.
+- User production diprovision via `scripts/provision-production.mjs` tanpa mencetak identitas; secret Access (`ACCESS_AUD`, `ACCESS_TEAM_DOMAIN`) terpasang sebagai Cloudflare Secrets.
+- Endpoint Telegram webhook mendapat bypass Cloudflare Access khusus path, tetap wajib divalidasi secret + allowlist di backend.
+- Verifikasi final: lint, format, typecheck, 16 test (health, trash, identity, ownership, spoofing/access), development/production build lulus.
 
-Fokus berikutnya: **Phase 3 - Authentication dan Authorization**. Setup Cloudflare Access dilakukan satu langkah per giliran, dilanjutkan identity middleware, mapping email ke user D1, ownership guard, route protection, dan security tests.
+Fokus berikutnya: **Phase 4 - Core Transactions**. Formulaikan service layer transaksi dulu (CRUD, kategori, filter/pagination, ringkasan, Trash, idempotency), lalu hubungkan ke router dengan ownership guard pada seluruh mutation.
 
 # DECISIONS
 
 - Cloudflare D1 adalah source of truth; Google Sheets hanya laporan/mirror.
-- Login dua pengguna memakai Cloudflare Access.
+- Login dua pengguna memakai Cloudflare Access; di production Worker hanya memercayai JWT Access yang terverifikasi, bukan header email.
+- Production menggunakan environment terpisah dengan `workers_dev` nonaktif dan custom domain.
 - Kedua pengguna bisa melihat seluruh data, tetapi hanya memodifikasi transaksi miliknya.
 - Mendukung income, expense, tabungan pribadi/bersama, anggaran, pengingat, import/export, dan Telegram Bot.
 - Tabungan memiliki beberapa pos, target opsional, setoran, penarikan, dan transfer.
@@ -46,7 +52,7 @@ Fokus berikutnya: **Phase 3 - Authentication dan Authorization**. Setup Cloudfla
 
 # SECURITY
 
-Jangan commit credential, token, private key, spreadsheet ID production, email/user ID pribadi, atau data transaksi nyata. Seluruh secret production wajib disimpan melalui Cloudflare Secrets.
+Jangan commit credential, token, private key, spreadsheet ID production, email/user ID pribadi, atau data transaksi nyata. Seluruh secret production wajib disimpan melalui Cloudflare Secrets; nilai `ACCESS_AUD` dan `ACCESS_TEAM_DOMAIN` tidak pernah masuk Git atau konfigurasi publik.
 
 # BEHAVIOR
 

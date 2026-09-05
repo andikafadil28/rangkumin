@@ -30,6 +30,13 @@
     "production": {
       "name": "rangkumin",
       "workers_dev": false,
+      "preview_urls": false,
+      "routes": [
+        {
+          "pattern": "rangkumin.dikadevit.my.id",
+          "custom_domain": true,
+        },
+      ],
       "vars": {
         "APP_ENV": "production",
       },

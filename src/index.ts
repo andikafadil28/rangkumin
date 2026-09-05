@@ -1,7 +1,9 @@
 import { Hono } from "hono";
+import { identityMiddleware } from "./middleware/identity";
 import { purgeExpiredTransactions } from "./services/trash";
+import type { AppEnv } from "./types";
 
-const app = new Hono<{ Bindings: Cloudflare.Env }>();
+export const app = new Hono<AppEnv>();
 
 app.get("/api/health", (context) => {
   return context.json({
@@ -11,6 +13,15 @@ app.get("/api/health", (context) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+const protectedApi = new Hono<AppEnv>();
+
+protectedApi.use("*", identityMiddleware);
+protectedApi.get("/me", (context) => {
+  return context.json({ user: context.get("currentUser") });
+});
+
+app.route("/api", protectedApi);
 
 app.notFound((context) => {
   return context.json(

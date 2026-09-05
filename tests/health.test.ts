@@ -19,15 +19,15 @@ describe("GET /api/health", () => {
 });
 
 describe("API fallback", () => {
-  it("mengembalikan JSON 404 untuk endpoint yang tidak tersedia", async () => {
+  it("menolak endpoint protected yang tidak dikenal tanpa identity", async () => {
     const response = await exports.default.fetch(
       "https://rangkumin.test/api/tidak-ada",
     );
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
-      error: "Not Found",
-      message: "Endpoint API tidak ditemukan.",
+      error: "Unauthorized",
+      message: "Identitas Cloudflare Access tidak tersedia.",
     });
   });
 });
