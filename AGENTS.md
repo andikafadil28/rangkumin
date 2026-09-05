@@ -15,7 +15,7 @@ Identitas proyek:
 
 # CURRENT
 
-Fokus berikutnya: lakukan smoke test endpoint protected Phase 6 memakai dua session Cloudflare Access, lalu mulai **Phase 7 - Frontend**. Gunakan prepared statement dan ownership guard pada seluruh mutation. Jangan memasukkan email atau identifier pribadi ke Git.
+Fokus berikutnya: smoke test protected Phase 6 untuk user pertama sudah lulus; ownership lintas user menunggu session user kedua. Mulai **Phase 7 - Frontend** sambil mempertahankan prepared statement dan ownership guard pada seluruh mutation. Jangan memasukkan email atau identifier pribadi ke Git.
 
 # ARCHITECTURE
 

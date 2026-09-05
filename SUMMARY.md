@@ -43,7 +43,9 @@ Yang sudah tersedia:
 - Migration Phase 6 sudah diterapkan ke D1 development dan production; Worker production version `9a04866c-5325-47bd-9b9a-4fe346492588` aktif dengan dua scheduled trigger.
 - Smoke test publik lulus: health `200`, route aplikasi/protected API dijaga Cloudflare Access, dan tabel Phase 6 tersedia di D1 production.
 
-Fokus berikutnya: smoke test manual endpoint protected sebagai dua user, lalu **Phase 7 - Frontend**.
+Smoke test protected user pertama lulus untuk budget, reminder actions, notification inbox, dan idempotent expense; seluruh fixture sudah dibersihkan. Ownership lintas user menunggu session user kedua.
+
+Fokus berikutnya: **Phase 7 - Frontend**.
 
 # DECISIONS
 
