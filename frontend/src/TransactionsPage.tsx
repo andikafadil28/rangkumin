@@ -1,0 +1,825 @@
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
+import { useAutoRefresh } from "./useAutoRefresh";
+import {
+  createTransaction,
+  deleteTransaction,
+  getCategories,
+  getTransactions,
+  getTrashedTransactions,
+  purgeTransaction,
+  restoreTransaction,
+  updateTransaction,
+} from "./api";
+import type { Category, Transaction } from "./api";
+
+const money = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  maximumFractionDigits: 0,
+});
+
+const shortDate = new Intl.DateTimeFormat("id-ID", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+const demoCategories: Category[] = [
+  {
+    id: "income-salary",
+    type: "income",
+    name: "Gaji",
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: "income-other",
+    type: "income",
+    name: "Lainnya",
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: "expense-food",
+    type: "expense",
+    name: "Makanan & Minuman",
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: "expense-shopping",
+    type: "expense",
+    name: "Belanja",
+    isDefault: true,
+    isActive: true,
+  },
+  {
+    id: "expense-bills",
+    type: "expense",
+    name: "Tagihan & Cicilan",
+    isDefault: true,
+    isActive: true,
+  },
+];
+
+function today() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function displayMoney(value: number, hidden: boolean) {
+  return hidden ? "Rp ••••••" : money.format(value);
+}
+
+type TransactionType = "income" | "expense";
+
+function TransactionForm({
+  initialType,
+  transaction,
+  categories,
+  onClose,
+  onSaved,
+}: {
+  initialType: TransactionType;
+  transaction?: Transaction;
+  categories: Category[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [type, setType] = useState<TransactionType>(
+    transaction?.type === "income" ? "income" : initialType,
+  );
+  const [amount, setAmount] = useState(
+    transaction ? String(transaction.amount) : "",
+  );
+  const [categoryId, setCategoryId] = useState(
+    transaction?.categoryId ?? transaction?.category?.id ?? "",
+  );
+  const [date, setDate] = useState(transaction?.transactionDate ?? today);
+  const [description, setDescription] = useState(
+    transaction?.description ?? "",
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const availableCategories = categories.filter(
+    (item) => item.type === type && item.isActive,
+  );
+
+  function changeType(next: TransactionType) {
+    setType(next);
+    setCategoryId("");
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const numericAmount = Number(amount);
+    if (!Number.isSafeInteger(numericAmount) || numericAmount <= 0) {
+      setError("Nominal harus berupa angka bulat lebih dari nol.");
+      return;
+    }
+    if (!categoryId) {
+      setError("Pilih kategori terlebih dahulu.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const input = {
+        type,
+        amount: numericAmount,
+        category_id: categoryId,
+        transaction_date: date,
+      };
+      if (transaction) {
+        await updateTransaction(transaction.id, {
+          ...input,
+          version: transaction.version ?? 1,
+          description: description.trim() || null,
+        });
+      } else {
+        await createTransaction({
+          ...input,
+          ...(description.trim() ? { description: description.trim() } : {}),
+        });
+      }
+      onSaved();
+    } catch (cause) {
+      if (import.meta.env.DEV) {
+        onSaved();
+        return;
+      }
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Transaksi belum dapat disimpan.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="dialog-backdrop transaction-backdrop" onMouseDown={onClose}>
+      <section
+        className="transaction-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="transaction-form-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="form-heading">
+          <div>
+            <p className="eyebrow">
+              {transaction ? "Perbarui catatan" : "Catatan baru"}
+            </p>
+            <h2 id="transaction-form-title">
+              {transaction ? "Edit transaksi" : "Tambah transaksi"}
+            </h2>
+          </div>
+          <button
+            className="dialog-close in-flow"
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup form"
+          >
+            ×
+          </button>
+        </div>
+        <form onSubmit={submit}>
+          <fieldset className="type-picker">
+            <legend>Jenis transaksi</legend>
+            <button
+              type="button"
+              aria-pressed={type === "expense"}
+              onClick={() => changeType("expense")}
+            >
+              Pengeluaran
+            </button>
+            <button
+              type="button"
+              aria-pressed={type === "income"}
+              onClick={() => changeType("income")}
+            >
+              Pemasukan
+            </button>
+          </fieldset>
+          <label className="amount-field">
+            <span>Nominal</span>
+            <div>
+              <b>Rp</b>
+              <input
+                autoFocus
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={amount}
+                onChange={(event) =>
+                  setAmount(event.target.value.replace(/\D/g, ""))
+                }
+                placeholder="0"
+                required
+              />
+            </div>
+          </label>
+          <div className="form-grid">
+            <label>
+              <span>Kategori</span>
+              <select
+                value={categoryId}
+                onChange={(event) => setCategoryId(event.target.value)}
+                required
+              >
+                <option value="">Pilih kategori</option>
+                {availableCategories.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Tanggal</span>
+              <input
+                type="date"
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+                required
+              />
+            </label>
+          </div>
+          <label>
+            <span>
+              Catatan <small>Opsional</small>
+            </span>
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Makan siang, gaji bulan ini..."
+            />
+          </label>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="form-actions">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={onClose}
+            >
+              Batal
+            </button>
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={submitting}
+            >
+              {submitting
+                ? "Menyimpan..."
+                : transaction
+                  ? "Simpan perubahan"
+                  : "Simpan transaksi"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function ConfirmationDialog({
+  title,
+  message,
+  dangerous,
+  actionLabel,
+  onClose,
+  onConfirm,
+}: {
+  title: string;
+  message: string;
+  dangerous?: boolean;
+  actionLabel: string;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function confirm() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onConfirm();
+    } catch (cause) {
+      if (import.meta.env.DEV && cause instanceof TypeError) {
+        onClose();
+        return;
+      }
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Perubahan belum dapat disimpan.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="dialog-backdrop confirm-backdrop" onMouseDown={onClose}>
+      <section
+        className="confirm-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-title"
+        aria-describedby="confirm-message"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <span className={dangerous ? "danger" : ""}>
+          {dangerous ? "!" : "↺"}
+        </span>
+        <h2 id="confirm-title">{title}</h2>
+        <p id="confirm-message">{message}</p>
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="form-actions">
+          <button className="secondary-button" type="button" onClick={onClose}>
+            Batal
+          </button>
+          <button
+            className={dangerous ? "danger-button" : "primary-button"}
+            type="button"
+            disabled={submitting}
+            onClick={() => void confirm()}
+          >
+            {submitting ? "Memproses..." : actionLabel}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export function TransactionsPage({
+  userId,
+  partnerId,
+  hidden,
+  intent,
+  onIntentHandled,
+  openTrash,
+  onTrashHandled,
+}: {
+  userId: string;
+  partnerId?: string;
+  hidden: boolean;
+  intent: TransactionType | null;
+  onIntentHandled: () => void;
+  openTrash: boolean;
+  onTrashHandled: () => void;
+}) {
+  const [items, setItems] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [total, setTotal] = useState(0);
+  const [type, setType] = useState("");
+  const [owner, setOwner] = useState("");
+  const [category, setCategory] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [formType, setFormType] = useState<TransactionType | null>(intent);
+  const [reload, setReload] = useState(0);
+  useAutoRefresh(() => setReload((value) => value + 1));
+  const [saved, setSaved] = useState(false);
+  const [view, setView] = useState<"active" | "trashed">("active");
+  const [selected, setSelected] = useState<Transaction | null>(null);
+  const [editing, setEditing] = useState<Transaction | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    kind: "delete" | "restore" | "purge";
+    transaction: Transaction;
+  } | null>(null);
+
+  useEffect(() => {
+    if (intent) setFormType(intent);
+  }, [intent]);
+
+  useEffect(() => {
+    if (!openTrash) return;
+    setView("trashed");
+    setOffset(0);
+    onTrashHandled();
+  }, [openTrash, onTrashHandled]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      view === "active"
+        ? getTransactions({ type, owner, category, offset }, controller.signal)
+        : getTrashedTransactions({ owner, offset }, controller.signal),
+      getCategories(controller.signal),
+    ])
+      .then(([transactions, categoryItems]) => {
+        setItems(transactions.items);
+        setTotal(transactions.total);
+        setCategories(categoryItems);
+      })
+      .catch((cause: unknown) => {
+        if (controller.signal.aborted) return;
+        if (import.meta.env.DEV) {
+          void import("./demo").then(({ demoDashboard }) => {
+            let demoItems = view === "active" ? demoDashboard.transactions : [];
+            if (type)
+              demoItems = demoItems.filter((item) => item.type === type);
+            if (owner)
+              demoItems = demoItems.filter(
+                (item) => item.ownerUserId === owner,
+              );
+            setItems(demoItems);
+            setTotal(demoItems.length);
+            setCategories(demoCategories);
+          });
+          return;
+        }
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Riwayat belum dapat dimuat.",
+        );
+      })
+      .finally(() => setLoading(false));
+    return () => controller.abort();
+  }, [type, owner, category, offset, reload, view]);
+
+  function closeForm() {
+    setFormType(null);
+    setEditing(null);
+    onIntentHandled();
+  }
+
+  function savedTransaction() {
+    closeForm();
+    setSaved(true);
+    setReload((value) => value + 1);
+    window.setTimeout(() => setSaved(false), 3000);
+  }
+
+  function changeFilter(setter: (value: string) => void, value: string) {
+    setter(value);
+    setOffset(0);
+  }
+
+  function changeView(next: "active" | "trashed") {
+    setView(next);
+    setOffset(0);
+    setSelected(null);
+  }
+
+  async function applyConfirmed() {
+    if (!confirmation) return;
+    const { kind, transaction } = confirmation;
+    if (kind === "delete") await deleteTransaction(transaction.id);
+    if (kind === "restore") await restoreTransaction(transaction.id);
+    if (kind === "purge") await purgeTransaction(transaction.id);
+    setConfirmation(null);
+    setSelected(null);
+    setSaved(true);
+    setReload((value) => value + 1);
+    window.setTimeout(() => setSaved(false), 3000);
+  }
+
+  return (
+    <section className="transactions-page" aria-labelledby="transactions-title">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">Catatan keuangan</p>
+          <h1 id="transactions-title">Transaksi</h1>
+          <p>Semua yang masuk dan keluar, tersusun dalam satu cerita.</p>
+        </div>
+        <div className="page-actions transaction-page-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => changeView(view === "active" ? "trashed" : "active")}
+          >
+            {view === "active" ? "Trash" : "Kembali"}
+          </button>
+          {view === "active" && (
+            <button
+              className="quick-add"
+              type="button"
+              onClick={() => setFormType("expense")}
+            >
+              + Catat transaksi
+            </button>
+          )}
+        </div>
+      </div>
+      {saved && (
+        <div className="success-banner" role="status">
+          Perubahan transaksi berhasil disimpan.
+        </div>
+      )}
+      <div className="transaction-view-heading">
+        <div>
+          <button
+            type="button"
+            aria-pressed={view === "active"}
+            onClick={() => changeView("active")}
+          >
+            Aktif
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === "trashed"}
+            onClick={() => changeView("trashed")}
+          >
+            Trash
+          </button>
+        </div>
+        {view === "trashed" && (
+          <p>Catatan dihapus permanen otomatis setelah 30 hari.</p>
+        )}
+      </div>
+      <div
+        className={`filter-bar ${view === "trashed" ? "trash-filters" : ""}`}
+      >
+        {view === "active" && (
+          <>
+            <label>
+              <span>Jenis</span>
+              <select
+                value={type}
+                onChange={(event) => changeFilter(setType, event.target.value)}
+              >
+                <option value="">Semua</option>
+                <option value="expense">Pengeluaran</option>
+                <option value="income">Pemasukan</option>
+                <option value="saving_deposit">Setoran tabungan</option>
+                <option value="saving_withdrawal">Penarikan tabungan</option>
+                <option value="saving_transfer">Transfer tabungan</option>
+              </select>
+            </label>
+          </>
+        )}
+        <label>
+          <span>Pemilik</span>
+          <select
+            value={owner}
+            onChange={(event) => changeFilter(setOwner, event.target.value)}
+          >
+            <option value="">Semua</option>
+            <option value={userId}>Milikmu</option>
+            {partnerId && <option value={partnerId}>Pasangan</option>}
+          </select>
+        </label>
+        {view === "active" && (
+          <label>
+            <span>Kategori</span>
+            <select
+              value={category}
+              onChange={(event) =>
+                changeFilter(setCategory, event.target.value)
+              }
+            >
+              <option value="">Semua kategori</option>
+              {categories
+                .filter((item) => !type || item.type === type)
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
+      </div>
+      <div className="transaction-ledger">
+        <div className="ledger-heading">
+          <span>
+            {total} {view === "trashed" ? "di Trash" : "catatan"}
+          </span>
+          <span>Nominal</span>
+        </div>
+        {loading && items.length === 0 ? (
+          <div className="ledger-loading">
+            <i />
+            <i />
+            <i />
+          </div>
+        ) : error && items.length === 0 ? (
+          <div className="empty-state">
+            <span>Riwayat belum tersambung</span>
+            <p>{error}</p>
+            <button
+              className="text-button"
+              type="button"
+              onClick={() => setReload((value) => value + 1)}
+            >
+              Coba lagi
+            </button>
+          </div>
+        ) : items.length ? (
+          <ul>
+            {items.map((item) => {
+              const mine = item.ownerUserId === userId;
+              const saving = item.type.startsWith("saving_");
+              const mutable = mine && !saving;
+              const tone = saving ? "saving" : item.type;
+              return (
+                <li key={item.id}>
+                  <span className={`ledger-icon ${tone}`}>
+                    {saving ? "◎" : item.type === "income" ? "↙" : "↗"}
+                  </span>
+                  <span className="ledger-copy">
+                    <b>
+                      {item.description ||
+                        item.category?.name ||
+                        "Mutasi tabungan"}
+                    </b>
+                    <small>
+                      {mine ? "Milikmu" : "Milik pasangan"} ·{" "}
+                      {shortDate.format(
+                        new Date(`${item.transactionDate}T12:00:00`),
+                      )}
+                    </small>
+                    {item.category && <em>{item.category.name}</em>}
+                  </span>
+                  <strong
+                    className={
+                      saving
+                        ? ""
+                        : item.type === "income"
+                          ? "positive"
+                          : "negative"
+                    }
+                  >
+                    {saving ? "" : item.type === "income" ? "+" : "−"}
+                    {displayMoney(item.amount, hidden)}
+                  </strong>
+                  {view === "active" ? (
+                    <button
+                      type="button"
+                      aria-label={
+                        mutable
+                          ? "Buka opsi transaksi"
+                          : saving
+                            ? "Mutasi dikelola dari halaman tabungan"
+                            : "Transaksi pasangan hanya dapat dilihat"
+                      }
+                      disabled={!mutable}
+                      onClick={() => setSelected(item)}
+                    >
+                      •••
+                    </button>
+                  ) : (
+                    <div className="trash-actions">
+                      <button
+                        type="button"
+                        disabled={!mutable}
+                        onClick={() =>
+                          setConfirmation({
+                            kind: "restore",
+                            transaction: item,
+                          })
+                        }
+                      >
+                        Pulihkan
+                      </button>
+                      <button
+                        className="danger-text"
+                        type="button"
+                        disabled={!mutable}
+                        onClick={() =>
+                          setConfirmation({ kind: "purge", transaction: item })
+                        }
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="empty-state">
+            <span>Belum ada catatan</span>
+            <p>
+              {view === "trashed"
+                ? "Catatan yang dihapus akan muncul di sini."
+                : "Coba ubah filter atau catat transaksi pertama."}
+            </p>
+          </div>
+        )}
+        <div className="pagination">
+          <button
+            type="button"
+            disabled={offset === 0}
+            onClick={() => setOffset(Math.max(0, offset - 10))}
+          >
+            Sebelumnya
+          </button>
+          <span>Halaman {Math.floor(offset / 10) + 1}</span>
+          <button
+            type="button"
+            disabled={offset + 10 >= total}
+            onClick={() => setOffset(offset + 10)}
+          >
+            Berikutnya
+          </button>
+        </div>
+      </div>
+      {(formType || editing) && (
+        <TransactionForm
+          initialType={
+            formType ?? (editing?.type === "income" ? "income" : "expense")
+          }
+          transaction={editing ?? undefined}
+          categories={categories}
+          onClose={closeForm}
+          onSaved={savedTransaction}
+        />
+      )}
+      {selected && (
+        <div
+          className="dialog-backdrop action-backdrop"
+          onMouseDown={() => setSelected(null)}
+        >
+          <section
+            className="transaction-actions"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Opsi transaksi"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <p className="eyebrow">Kelola catatan</p>
+            <h2>
+              {selected.description || selected.category?.name || "Transaksi"}
+            </h2>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(selected);
+                setSelected(null);
+              }}
+            >
+              Edit transaksi
+            </button>
+            <button
+              className="danger-text"
+              type="button"
+              onClick={() => {
+                setConfirmation({ kind: "delete", transaction: selected });
+                setSelected(null);
+              }}
+            >
+              Pindahkan ke Trash
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => setSelected(null)}
+            >
+              Batal
+            </button>
+          </section>
+        </div>
+      )}
+      {confirmation && (
+        <ConfirmationDialog
+          title={
+            confirmation.kind === "delete"
+              ? "Pindahkan ke Trash?"
+              : confirmation.kind === "restore"
+                ? "Pulihkan transaksi?"
+                : "Hapus permanen?"
+          }
+          message={
+            confirmation.kind === "delete"
+              ? "Catatan dapat dipulihkan dari Trash selama 30 hari."
+              : confirmation.kind === "restore"
+                ? "Catatan akan kembali ke riwayat aktif dan masuk ke perhitungan saldo."
+                : "Tindakan ini tidak dapat dibatalkan dan catatan tidak bisa dipulihkan lagi."
+          }
+          dangerous={confirmation.kind !== "restore"}
+          actionLabel={
+            confirmation.kind === "delete"
+              ? "Pindahkan"
+              : confirmation.kind === "restore"
+                ? "Pulihkan"
+                : "Hapus permanen"
+          }
+          onClose={() => setConfirmation(null)}
+          onConfirm={applyConfirmed}
+        />
+      )}
+    </section>
+  );
+}

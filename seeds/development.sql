@@ -1,6 +1,6 @@
 INSERT INTO users (id, email, display_name)
 VALUES
-  ('user-demo-1', 'user1@example.invalid', 'User Satu'),
+  ('user-demo-1', 'user1@example.invalid', 'Andika'),
   ('user-demo-2', 'user2@example.invalid', 'User Dua')
 ON CONFLICT(id) DO UPDATE SET
   email = excluded.email,

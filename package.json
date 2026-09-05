@@ -10,8 +10,10 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "wrangler dev",
-    "build": "wrangler deploy --dry-run --env=\"\" --outdir dist",
+    "dev": "npm run build:frontend && wrangler dev",
+    "dev:frontend": "vite --config vite.config.ts",
+    "build:frontend": "vite build --config vite.config.ts",
+    "build": "npm run build:frontend && wrangler deploy --dry-run --env=\"\" --outdir dist",
     "types": "wrangler types --include-runtime=false",
     "db:migrate:local": "wrangler d1 migrations apply DB --local --env=\"\"",
     "db:migrate:development": "wrangler d1 migrations apply DB --remote --env=\"\"",
@@ -32,6 +34,8 @@
   "dependencies": {
     "hono": "^4.13.5",
     "jose": "^6.2.11",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -39,11 +43,15 @@
     "@cloudflare/workers-types": "^5.20260904.1",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.0.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
     "eslint": "^10.0.0",
     "globals": "^17.3.0",
     "prettier": "^3.9.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.69.0",
+    "vite": "^8.2.2",
     "vitest": "^4.1.0",
     "wrangler": "^4.129.0"
   }

@@ -8,6 +8,7 @@ export default tseslint.config(
       "coverage/**",
       "dist*/**",
       "node_modules/**",
+      "public/assets/**",
       ".wrangler/**",
       "worker-configuration.d.ts",
     ],
@@ -18,6 +19,18 @@ export default tseslint.config(
     files: ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
     languageOptions: {
       globals: globals.serviceworker,
+    },
+    rules: {
+      "@typescript-eslint/consistent-type-imports": "error",
+    },
+  },
+  {
+    files: ["frontend/src/**/*.{ts,tsx}", "vite.config.ts"],
+    languageOptions: {
+      globals: globals.browser,
+      parserOptions: {
+        ecmaFeatures: { jsx: true },
+      },
     },
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
