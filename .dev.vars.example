@@ -1,0 +1,3 @@
+# Salin menjadi .dev.vars untuk local development.
+# Credential dan identifier pribadi ditambahkan pada fase integrasi.
+APP_ENV="development"

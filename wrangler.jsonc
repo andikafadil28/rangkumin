@@ -1,0 +1,46 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "rangkumin-development",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-04",
+  "workers_dev": true,
+  "vars": {
+    "APP_ENV": "development",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "rangkumin-development",
+      "database_id": "d3e65145-f77d-4fff-aeee-bdc81301e9c7",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "triggers": {
+    "crons": ["15 17 * * *"],
+  },
+  "env": {
+    "production": {
+      "name": "rangkumin",
+      "workers_dev": false,
+      "vars": {
+        "APP_ENV": "production",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "rangkumin-production",
+          "database_id": "f30d985f-bdb7-42fd-b441-607aa7c5a4da",
+          "migrations_dir": "migrations",
+        },
+      ],
+    },
+  },
+}

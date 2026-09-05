@@ -1,0 +1,47 @@
+{
+  "name": "rangkumin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aplikasi keuangan pasangan berbasis Cloudflare Workers.",
+  "license": "MIT",
+  "author": "Andika Fadil",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run --env=\"\" --outdir dist",
+    "types": "wrangler types --include-runtime=false",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local --env=\"\"",
+    "db:migrate:development": "wrangler d1 migrations apply DB --remote --env=\"\"",
+    "db:migrate:production": "wrangler d1 migrations apply DB --remote --env production",
+    "db:migrations:list:local": "wrangler d1 migrations list DB --local --env=\"\"",
+    "db:migrations:list:development": "wrangler d1 migrations list DB --remote --env=\"\"",
+    "db:migrations:list:production": "wrangler d1 migrations list DB --remote --env production",
+    "db:seed:local": "wrangler d1 execute DB --local --env=\"\" --file seeds/development.sql",
+    "db:seed:development": "wrangler d1 execute DB --remote --env=\"\" --file seeds/development.sql",
+    "typecheck": "tsc --noEmit && tsc --noEmit --project tests/tsconfig.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "hono": "^4.13.5",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.1.4",
+    "@cloudflare/workers-types": "^5.20260904.1",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.0.0",
+    "globals": "^17.3.0",
+    "prettier": "^3.9.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.69.0",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.129.0"
+  }
+}
