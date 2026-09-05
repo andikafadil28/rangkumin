@@ -11,11 +11,11 @@ Identitas proyek:
 - Author: Andika Fadil (`@andikafadil28`).
 - Lisensi: MIT, `Copyright (c) 2026 Andika Fadil`.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1 Project Foundation sampai Phase 4 Core Transactions selesai serta terverifikasi pada 5 September 2026.
+- Status: Phase 1 Project Foundation sampai Phase 5 Savings selesai serta terverifikasi pada 5 September 2026.
 
 # CURRENT
 
-Fokus berikutnya: **Phase 5 - Savings**. Implementasikan service layer pos tabungan pribadi/bersama, target opsional, setoran, penarikan, transfer antarpos atomik, pencegahan saldo negatif, serta riwayat mutasi. Gunakan prepared statement dan ownership guard pada seluruh mutation. Jangan memasukkan email atau identifier pribadi ke Git.
+Fokus berikutnya: **Phase 6 - Budgets dan Reminders**. Mulai dari service layer anggaran personal/bersama, periode bulanan, custom threshold, dan notification channel; lanjutkan recurrence reminder dan scheduled processing. Gunakan prepared statement dan ownership guard pada seluruh mutation. Jangan memasukkan email atau identifier pribadi ke Git.
 
 # ARCHITECTURE
 
@@ -34,7 +34,8 @@ Fokus berikutnya: **Phase 5 - Savings**. Implementasikan service layer pos tabun
 
 ## Pengguna dan Authorization
 
-- Aplikasi digunakan dua orang dan kedua pengguna dapat melihat seluruh transaksi serta ringkasan.
+- Aplikasi digunakan dua orang dan kedua pengguna dapat melihat seluruh transaksi, ringkasan, saldo tunai, serta saldo tabungan satu sama lain.
+- Data personal milik pasangan bersifat read-only; hanya pemilik yang boleh melakukan mutation.
 - Pengguna hanya dapat mengedit, menghapus, memulihkan, atau menghapus permanen transaksi miliknya sendiri.
 - Ownership wajib divalidasi backend, bukan hanya disembunyikan dari UI.
 - Transaksi yang dihapus masuk Trash dan dipurge otomatis setelah 30 hari.
@@ -51,6 +52,8 @@ Fokus berikutnya: **Phase 5 - Savings**. Implementasikan service layer pos tabun
 ## Tabungan
 
 - Mendukung beberapa pos tabungan pribadi dan bersama.
+- Kedua pengguna dapat melihat seluruh pos; pos personal pasangan read-only, sedangkan pos bersama dapat dimutasi keduanya.
+- Metadata pos bersama hanya dapat diubah oleh pembuatnya.
 - Target setiap pos bersifat opsional.
 - Mendukung setoran, penarikan, dan transfer antarpos.
 - Saldo pos tidak boleh negatif.
@@ -133,12 +136,12 @@ Fokus berikutnya: **Phase 5 - Savings**. Implementasikan service layer pos tabun
 
 ## Phase 5 - Savings
 
-- [ ] Implementasikan CRUD pos tabungan pribadi dan bersama.
-- [ ] Tambahkan target opsional dan progress.
-- [ ] Implementasikan setoran dan penarikan.
-- [ ] Implementasikan transfer antarpos secara atomik.
-- [ ] Cegah saldo negatif dan catat mutation history.
-- [ ] Uji perhitungan saldo pribadi, tabungan, dan transfer.
+- [x] Implementasikan CRUD pos tabungan pribadi dan bersama.
+- [x] Tambahkan target opsional dan progress.
+- [x] Implementasikan setoran dan penarikan.
+- [x] Implementasikan transfer antarpos secara atomik.
+- [x] Cegah saldo negatif dan catat mutation history.
+- [x] Uji perhitungan saldo pribadi, tabungan, dan transfer.
 
 ## Phase 6 - Budgets dan Reminders
 

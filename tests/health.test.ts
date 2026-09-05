@@ -27,6 +27,14 @@ describe("API fallback", () => {
     expect(response.status).toBe(401);
   });
 
+  it("menolak list tabungan tanpa identity", async () => {
+    const response = await exports.default.fetch(
+      "https://rangkumin.test/api/savings/goals",
+    );
+
+    expect(response.status).toBe(401);
+  });
+
   it("menolak endpoint protected yang tidak dikenal tanpa identity", async () => {
     const response = await exports.default.fetch(
       "https://rangkumin.test/api/tidak-ada",

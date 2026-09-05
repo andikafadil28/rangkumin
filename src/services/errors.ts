@@ -16,3 +16,9 @@ export class VersionConflictError extends ConflictError {}
 export class CategoryConflictError extends ConflictError {}
 
 export class InvalidCategoryError extends RangkuminError {}
+
+export class SavingsGoalConflictError extends ConflictError {}
+
+export class InsufficientBalanceError extends ConflictError {}
+
+export class ImmutableTransactionError extends ConflictError {}

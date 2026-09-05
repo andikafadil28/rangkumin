@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import {
   categoryOwnershipGuard,
+  savingsGoalMetadataGuard,
   transactionOwnershipGuard,
 } from "../src/middleware/ownership";
 import type { AppEnv } from "../src/types";
@@ -165,5 +166,60 @@ describe("categoryOwnershipGuard", () => {
     );
 
     expect(response.status).toBe(200);
+  });
+});
+
+describe("savingsGoalMetadataGuard", () => {
+  function createGoalApp(actorUserId: string, creatorUserId: string) {
+    const environment = {
+      APP_ENV: "development",
+      DB: {
+        prepare: vi.fn().mockReturnValue({
+          bind: vi.fn().mockReturnValue({
+            first: vi.fn().mockResolvedValue({
+              created_by_user_id: creatorUserId,
+              ownership_scope: "shared",
+              owner_user_id: null,
+            }),
+          }),
+        }),
+      } as unknown as D1Database,
+    } as Cloudflare.Env;
+    const testApp = new Hono<AppEnv>();
+
+    testApp.use("*", async (context, next) => {
+      context.set("currentUser", {
+        id: actorUserId,
+        displayName: "User",
+      });
+      await next();
+    });
+    testApp.patch("/savings/:goalId", savingsGoalMetadataGuard, (context) =>
+      context.json({ updated: true }),
+    );
+
+    return { environment, testApp };
+  }
+
+  it("mengizinkan creator mengubah metadata shared goal", async () => {
+    const { environment, testApp } = createGoalApp("user-1", "user-1");
+    const response = await testApp.request(
+      "/savings/shared-1",
+      { method: "PATCH" },
+      environment,
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it("menolak pasangan mengubah metadata shared goal", async () => {
+    const { environment, testApp } = createGoalApp("user-2", "user-1");
+    const response = await testApp.request(
+      "/savings/shared-1",
+      { method: "PATCH" },
+      environment,
+    );
+
+    expect(response.status).toBe(403);
   });
 });

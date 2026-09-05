@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { identityMiddleware } from "./middleware/identity";
 import { categoryRoutes } from "./routes/categories";
+import { savingsRoutes } from "./routes/savings";
 import {
   transactionQueryRoutes,
   transactionRoutes,
@@ -26,6 +27,7 @@ protectedApi.get("/me", (context) => {
   return context.json({ user: context.get("currentUser") });
 });
 protectedApi.route("/categories", categoryRoutes);
+protectedApi.route("/savings", savingsRoutes);
 protectedApi.route("/transactions", transactionRoutes);
 protectedApi.route("/", transactionQueryRoutes);
 

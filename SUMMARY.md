@@ -13,7 +13,7 @@
 
 # CURRENT
 
-**Phase 1 sampai Phase 4 - Core Transactions selesai serta terverifikasi pada 5 September 2026.**
+**Phase 1 sampai Phase 5 - Savings selesai serta terverifikasi pada 5 September 2026.**
 
 Yang sudah tersedia:
 
@@ -33,16 +33,20 @@ Yang sudah tersedia:
 - Endpoint Telegram webhook mendapat bypass Cloudflare Access khusus path, tetap wajib divalidasi secret + allowlist di backend.
 - CRUD income/expense, kategori default/custom, filter + offset pagination, ringkasan individu/gabungan, Trash/restore/purge, optimistic locking, dan idempotency offline tersedia melalui protected API.
 - Seluruh mutation memakai ownership guard dan prepared statement; permanent purge hanya menerima transaksi yang sudah berada di Trash.
-- Verifikasi final: lint, format, typecheck, 40 test, development/production build, dan smoke test mutation D1 lokal lulus.
+- Pos tabungan personal/shared, target dan progress, saldo tunai kedua user, deposit, withdrawal, transfer atomik, serta mutation history tersedia melalui protected API.
+- Kedua user dapat membaca seluruh saldo; personal goal pasangan read-only, shared goal dapat dimutasi keduanya, dan metadata shared hanya dapat diubah creator.
+- Deposit memerlukan saldo tunai actor yang cukup; withdrawal/transfer tidak dapat membuat saldo goal negatif; history savings immutable.
+- Verifikasi final: lint, format, typecheck, 50 test, development/production build, dan smoke test mutation D1 lokal lintas dua user lulus.
 
-Fokus berikutnya: **Phase 5 - Savings**. Mulai dari service layer pos tabungan pribadi/bersama, lalu implementasikan mutasi saldo dan transfer antarpos secara atomik.
+Fokus berikutnya: **Phase 6 - Budgets dan Reminders**. Mulai dari service layer budget bulanan, threshold notifikasi, recurrence reminder, dan scheduled processing.
 
 # DECISIONS
 
 - Cloudflare D1 adalah source of truth; Google Sheets hanya laporan/mirror.
 - Login dua pengguna memakai Cloudflare Access; di production Worker hanya memercayai JWT Access yang terverifikasi, bukan header email.
 - Production menggunakan environment terpisah dengan `workers_dev` nonaktif dan custom domain.
-- Kedua pengguna bisa melihat seluruh data, tetapi hanya memodifikasi transaksi miliknya.
+- Kedua pengguna bisa melihat seluruh data dan saldo satu sama lain; data personal pasangan bersifat read-only.
+- Pos tabungan bersama dapat dimutasi keduanya, tetapi metadata hanya dapat diubah oleh pembuatnya.
 - Mendukung income, expense, tabungan pribadi/bersama, anggaran, pengingat, import/export, dan Telegram Bot.
 - Tabungan memiliki beberapa pos, target opsional, setoran, penarikan, dan transfer.
 - Anggaran berulang bulanan, reset tiap bulan, dengan custom warning threshold.

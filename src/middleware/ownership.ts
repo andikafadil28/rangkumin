@@ -3,6 +3,7 @@ import type { AppEnv } from "../types";
 
 type OwnershipRow = {
   owner_user_id: string;
+  type?: string;
 };
 
 type CategoryOwnershipRow = {
@@ -25,7 +26,7 @@ export const transactionOwnershipGuard = createMiddleware<AppEnv>(
     }
 
     const transaction = await context.env.DB.prepare(
-      `SELECT owner_user_id
+      `SELECT owner_user_id, type
        FROM transactions
        WHERE id = ?1
        LIMIT 1`,
@@ -48,6 +49,68 @@ export const transactionOwnershipGuard = createMiddleware<AppEnv>(
         {
           error: "Forbidden",
           message: "Transaksi hanya dapat diubah oleh pemiliknya.",
+        },
+        403,
+      );
+    }
+
+    if (transaction.type?.startsWith("saving_")) {
+      return context.json(
+        {
+          error: "Conflict",
+          message: "Riwayat mutasi tabungan bersifat immutable.",
+        },
+        409,
+      );
+    }
+
+    await next();
+  },
+);
+
+type SavingsGoalOwnershipRow = {
+  created_by_user_id: string;
+  ownership_scope: "personal" | "shared";
+  owner_user_id: string | null;
+};
+
+export const savingsGoalMetadataGuard = createMiddleware<AppEnv>(
+  async (context, next) => {
+    const goalId = context.req.param("goalId")?.trim();
+    if (!goalId || goalId.length > 128) {
+      return context.json(
+        { error: "Not Found", message: "Pos tabungan tidak ditemukan." },
+        404,
+      );
+    }
+
+    const goal = await context.env.DB.prepare(
+      `SELECT created_by_user_id, ownership_scope, owner_user_id
+       FROM savings_goals
+       WHERE id = ?1
+       LIMIT 1`,
+    )
+      .bind(goalId)
+      .first<SavingsGoalOwnershipRow>();
+
+    if (!goal) {
+      return context.json(
+        { error: "Not Found", message: "Pos tabungan tidak ditemukan." },
+        404,
+      );
+    }
+
+    const userId = context.get("currentUser").id;
+    const allowed =
+      goal.ownership_scope === "personal"
+        ? goal.owner_user_id === userId
+        : goal.created_by_user_id === userId;
+
+    if (!allowed) {
+      return context.json(
+        {
+          error: "Forbidden",
+          message: "Metadata pos tabungan hanya dapat diubah pemiliknya.",
         },
         403,
       );

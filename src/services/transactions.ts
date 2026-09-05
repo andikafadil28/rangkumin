@@ -385,7 +385,9 @@ export async function updateTransaction(
            transaction_date = ?5,
            version = version + 1,
            updated_at = ?6
-       WHERE id = ?7 AND version = ?8`,
+       WHERE id = ?7
+         AND version = ?8
+         AND type IN ('income', 'expense')`,
     )
     .bind(
       nextType,
@@ -424,7 +426,9 @@ export async function softDeleteTransaction(
        SET deleted_at = ?1,
            purge_after = ?2,
            updated_at = ?1
-       WHERE id = ?3 AND deleted_at IS NULL`,
+       WHERE id = ?3
+         AND deleted_at IS NULL
+         AND type IN ('income', 'expense')`,
     )
     .bind(
       now.toISOString(),
@@ -448,7 +452,9 @@ export async function restoreTransaction(
        SET deleted_at = NULL,
            purge_after = NULL,
            updated_at = ?1
-       WHERE id = ?2 AND deleted_at IS NOT NULL`,
+       WHERE id = ?2
+         AND deleted_at IS NOT NULL
+         AND type IN ('income', 'expense')`,
     )
     .bind(new Date().toISOString(), transactionId)
     .run();
@@ -472,7 +478,9 @@ export async function purgeTransaction(
   const result = await database
     .prepare(
       `DELETE FROM transactions
-       WHERE id = ?1 AND deleted_at IS NOT NULL`,
+       WHERE id = ?1
+         AND deleted_at IS NOT NULL
+         AND type IN ('income', 'expense')`,
     )
     .bind(transactionId)
     .run();
