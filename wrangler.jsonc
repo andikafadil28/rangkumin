@@ -24,7 +24,7 @@
     "enabled": true,
   },
   "triggers": {
-    "crons": ["15 17 * * *"],
+    "crons": ["*/15 * * * *", "15 17 * * *"],
   },
   "env": {
     "production": {

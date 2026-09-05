@@ -13,7 +13,7 @@
 
 # CURRENT
 
-**Phase 1 sampai Phase 5 - Savings selesai serta terverifikasi pada 5 September 2026.**
+**Phase 1 sampai Phase 6 - Budgets dan Reminders selesai, terverifikasi, dan sudah di-deploy pada 5 September 2026.**
 
 Yang sudah tersedia:
 
@@ -36,9 +36,14 @@ Yang sudah tersedia:
 - Pos tabungan personal/shared, target dan progress, saldo tunai kedua user, deposit, withdrawal, transfer atomik, serta mutation history tersedia melalui protected API.
 - Kedua user dapat membaca seluruh saldo; personal goal pasangan read-only, shared goal dapat dimutasi keduanya, dan metadata shared hanya dapat diubah creator.
 - Deposit memerlukan saldo tunai actor yang cukup; withdrawal/transfer tidak dapat membuat saldo goal negatif; history savings immutable.
-- Verifikasi final: lint, format, typecheck, 50 test, development/production build, dan smoke test mutation D1 lokal lintas dua user lulus.
+- Budget personal/shared per kategori, periode bulanan tanpa carry-over, custom threshold, serta channel dashboard/Telegram tersedia melalui protected API.
+- Reminder sekali, interval hari, mingguan, dan bulanan mendukung recipient terpilih, creator-only metadata mutation, complete, snooze, serta catat expense atomik dan idempotent.
+- Scheduled processing membuat occurrence dan notification secara deduplicated; dashboard inbox dan mark-as-read tersedia, sedangkan delivery Telegram menunggu Phase 9.
+- Verifikasi final: lint, format, typecheck, 62 test, fresh migration serta collision rehearsal, dan development/production dry-run build lulus.
+- Migration Phase 6 sudah diterapkan ke D1 development dan production; Worker production version `9a04866c-5325-47bd-9b9a-4fe346492588` aktif dengan dua scheduled trigger.
+- Smoke test publik lulus: health `200`, route aplikasi/protected API dijaga Cloudflare Access, dan tabel Phase 6 tersedia di D1 production.
 
-Fokus berikutnya: **Phase 6 - Budgets dan Reminders**. Mulai dari service layer budget bulanan, threshold notifikasi, recurrence reminder, dan scheduled processing.
+Fokus berikutnya: smoke test manual endpoint protected sebagai dua user, lalu **Phase 7 - Frontend**.
 
 # DECISIONS
 

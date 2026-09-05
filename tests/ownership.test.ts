@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import {
   categoryOwnershipGuard,
+  reminderCreatorGuard,
   savingsGoalMetadataGuard,
   transactionOwnershipGuard,
 } from "../src/middleware/ownership";
@@ -91,6 +92,36 @@ describe("transactionOwnershipGuard", () => {
 
     expect(response.status).toBe(404);
     expect(prepare).not.toHaveBeenCalled();
+  });
+});
+
+describe("reminderCreatorGuard", () => {
+  it("menolak pasangan mengubah metadata reminder", async () => {
+    const environment = {
+      APP_ENV: "development",
+      DB: {
+        prepare: vi.fn().mockReturnValue({
+          bind: vi.fn().mockReturnValue({
+            first: vi.fn().mockResolvedValue({ creator_user_id: "user-2" }),
+          }),
+        }),
+      } as unknown as D1Database,
+    } as Cloudflare.Env;
+    const testApp = new Hono<AppEnv>();
+    testApp.use("*", async (context, next) => {
+      context.set("currentUser", { id: "user-1", displayName: "User Satu" });
+      await next();
+    });
+    testApp.patch("/reminders/:reminderId", reminderCreatorGuard, (context) =>
+      context.json({ updated: true }),
+    );
+
+    const response = await testApp.request(
+      "/reminders/reminder-1",
+      { method: "PATCH" },
+      environment,
+    );
+    expect(response.status).toBe(403);
   });
 });
 

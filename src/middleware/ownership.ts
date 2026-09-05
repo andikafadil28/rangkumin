@@ -120,6 +120,82 @@ export const savingsGoalMetadataGuard = createMiddleware<AppEnv>(
   },
 );
 
+export const budgetMetadataGuard = createMiddleware<AppEnv>(
+  async (context, next) => {
+    const budgetId = context.req.param("budgetId")?.trim();
+    if (!budgetId || budgetId.length > 128) {
+      return context.json(
+        { error: "Not Found", message: "Budget tidak ditemukan." },
+        404,
+      );
+    }
+    const budget = await context.env.DB.prepare(
+      `SELECT created_by_user_id, ownership_scope, owner_user_id
+       FROM budgets WHERE id = ?1 LIMIT 1`,
+    )
+      .bind(budgetId)
+      .first<{
+        created_by_user_id: string;
+        ownership_scope: "personal" | "shared";
+        owner_user_id: string | null;
+      }>();
+    if (!budget) {
+      return context.json(
+        { error: "Not Found", message: "Budget tidak ditemukan." },
+        404,
+      );
+    }
+    const userId = context.get("currentUser").id;
+    const allowed =
+      budget.ownership_scope === "personal"
+        ? budget.owner_user_id === userId
+        : budget.created_by_user_id === userId;
+    if (!allowed) {
+      return context.json(
+        {
+          error: "Forbidden",
+          message: "Budget hanya dapat diubah pembuatnya.",
+        },
+        403,
+      );
+    }
+    await next();
+  },
+);
+
+export const reminderCreatorGuard = createMiddleware<AppEnv>(
+  async (context, next) => {
+    const reminderId = context.req.param("reminderId")?.trim();
+    if (!reminderId || reminderId.length > 128) {
+      return context.json(
+        { error: "Not Found", message: "Reminder tidak ditemukan." },
+        404,
+      );
+    }
+    const reminder = await context.env.DB.prepare(
+      `SELECT creator_user_id FROM reminders WHERE id = ?1 LIMIT 1`,
+    )
+      .bind(reminderId)
+      .first<{ creator_user_id: string }>();
+    if (!reminder) {
+      return context.json(
+        { error: "Not Found", message: "Reminder tidak ditemukan." },
+        404,
+      );
+    }
+    if (reminder.creator_user_id !== context.get("currentUser").id) {
+      return context.json(
+        {
+          error: "Forbidden",
+          message: "Reminder hanya dapat diubah pembuatnya.",
+        },
+        403,
+      );
+    }
+    await next();
+  },
+);
+
 export const categoryOwnershipGuard = createMiddleware<AppEnv>(
   async (context, next) => {
     const categoryId = context.req.param("categoryId")?.trim();

@@ -11,11 +11,11 @@ Identitas proyek:
 - Author: Andika Fadil (`@andikafadil28`).
 - Lisensi: MIT, `Copyright (c) 2026 Andika Fadil`.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1 Project Foundation sampai Phase 5 Savings selesai serta terverifikasi pada 5 September 2026.
+- Status: Phase 1 sampai Phase 6 selesai, terverifikasi, dan Phase 6 sudah di-deploy pada 5 September 2026.
 
 # CURRENT
 
-Fokus berikutnya: **Phase 6 - Budgets dan Reminders**. Mulai dari service layer anggaran personal/bersama, periode bulanan, custom threshold, dan notification channel; lanjutkan recurrence reminder dan scheduled processing. Gunakan prepared statement dan ownership guard pada seluruh mutation. Jangan memasukkan email atau identifier pribadi ke Git.
+Fokus berikutnya: lakukan smoke test endpoint protected Phase 6 memakai dua session Cloudflare Access, lalu mulai **Phase 7 - Frontend**. Gunakan prepared statement dan ownership guard pada seluruh mutation. Jangan memasukkan email atau identifier pribadi ke Git.
 
 # ARCHITECTURE
 
@@ -145,13 +145,13 @@ Fokus berikutnya: **Phase 6 - Budgets dan Reminders**. Mulai dari service layer 
 
 ## Phase 6 - Budgets dan Reminders
 
-- [ ] Implementasikan anggaran personal/bersama per kategori.
-- [ ] Implementasikan recurrence bulanan dan reset periodik.
-- [ ] Implementasikan custom warning thresholds dan notification channel.
-- [ ] Implementasikan reminder sekali/interval/mingguan/bulanan.
-- [ ] Implementasikan recipient personal/bersama dan scheduled processing.
-- [ ] Tambahkan aksi selesai, snooze, dan catat pengeluaran.
-- [ ] Uji batas periode, timezone, duplicate delivery, dan reminder recurrence.
+- [x] Implementasikan anggaran personal/bersama per kategori.
+- [x] Implementasikan recurrence bulanan dan reset periodik.
+- [x] Implementasikan custom warning thresholds dan notification channel.
+- [x] Implementasikan reminder sekali/interval/mingguan/bulanan.
+- [x] Implementasikan recipient personal/bersama dan scheduled processing.
+- [x] Tambahkan aksi selesai, snooze, dan catat pengeluaran.
+- [x] Uji batas periode, timezone, duplicate delivery, dan reminder recurrence.
 
 ## Phase 7 - Frontend
 
@@ -210,9 +210,9 @@ Fokus berikutnya: **Phase 6 - Budgets dan Reminders**. Mulai dari service layer 
 ## Phase 13 - Production Deployment
 
 - [x] Buat D1 production dan jalankan initial migration.
-- [ ] Jalankan seluruh migration terbaru sebelum deploy.
+- [x] Jalankan seluruh migration terbaru sebelum deploy.
 - [ ] Pasang seluruh Cloudflare Secrets.
-- [ ] Deploy Worker + Static Assets.
+- [x] Deploy Worker + Static Assets.
 - [ ] Hubungkan `rangkumin.dikadevit.my.id` dan aktifkan Cloudflare Access.
 - [ ] Daftarkan Telegram webhook dan scheduled triggers production.
 - [ ] Jalankan smoke test dua pengguna, PWA, Telegram, dan Google Sheets.

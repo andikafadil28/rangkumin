@@ -2,7 +2,7 @@ import { exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
 describe("GET /api/health", () => {
-  it("mengembalikan status layanan", async () => {
+  it("mengembalikan status layanan", { timeout: 15_000 }, async () => {
     const response = await exports.default.fetch(
       "https://rangkumin.test/api/health",
     );

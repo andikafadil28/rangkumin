@@ -1,13 +1,22 @@
 import { Hono } from "hono";
 import { identityMiddleware } from "./middleware/identity";
+import { budgetRoutes } from "./routes/budgets";
 import { categoryRoutes } from "./routes/categories";
+import { notificationRoutes } from "./routes/notifications";
+import { reminderRoutes } from "./routes/reminders";
 import { savingsRoutes } from "./routes/savings";
 import {
   transactionQueryRoutes,
   transactionRoutes,
 } from "./routes/transactions";
+import { evaluateBudgetAlerts } from "./services/budgets";
+import {
+  processDueReminders,
+  processSnoozedOccurrences,
+} from "./services/reminders";
 import { purgeExpiredTransactions } from "./services/trash";
 import type { AppEnv } from "./types";
+import { getCurrentMonthRange } from "./utils/date";
 
 export const app = new Hono<AppEnv>();
 
@@ -26,7 +35,10 @@ protectedApi.use("*", identityMiddleware);
 protectedApi.get("/me", (context) => {
   return context.json({ user: context.get("currentUser") });
 });
+protectedApi.route("/budgets", budgetRoutes);
 protectedApi.route("/categories", categoryRoutes);
+protectedApi.route("/notifications", notificationRoutes);
+protectedApi.route("/reminders", reminderRoutes);
 protectedApi.route("/savings", savingsRoutes);
 protectedApi.route("/transactions", transactionRoutes);
 protectedApi.route("/", transactionQueryRoutes);
@@ -57,11 +69,17 @@ app.onError((error, context) => {
 
 export default {
   fetch: app.fetch,
-  scheduled(_controller, environment, executionContext) {
-    executionContext.waitUntil(
-      purgeExpiredTransactions(environment.DB).then((deletedCount) => {
-        console.info("Scheduled trash purge completed", { deletedCount });
-      }),
+  scheduled(controller, environment, executionContext) {
+    const jobs: Promise<unknown>[] = [];
+    if (controller.cron === "15 17 * * *") {
+      jobs.push(purgeExpiredTransactions(environment.DB));
+    }
+    const period = getCurrentMonthRange().from.slice(0, 7);
+    jobs.push(
+      processDueReminders(environment.DB),
+      processSnoozedOccurrences(environment.DB),
+      evaluateBudgetAlerts(environment.DB, period),
     );
+    executionContext.waitUntil(Promise.all(jobs));
   },
 } satisfies ExportedHandler<Cloudflare.Env>;
