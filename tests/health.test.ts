@@ -19,6 +19,14 @@ describe("GET /api/health", () => {
 });
 
 describe("API fallback", () => {
+  it("menolak list transaksi tanpa identity", async () => {
+    const response = await exports.default.fetch(
+      "https://rangkumin.test/api/transactions",
+    );
+
+    expect(response.status).toBe(401);
+  });
+
   it("menolak endpoint protected yang tidak dikenal tanpa identity", async () => {
     const response = await exports.default.fetch(
       "https://rangkumin.test/api/tidak-ada",

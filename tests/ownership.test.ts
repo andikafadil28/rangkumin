@@ -1,6 +1,9 @@
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import { transactionOwnershipGuard } from "../src/middleware/ownership";
+import {
+  categoryOwnershipGuard,
+  transactionOwnershipGuard,
+} from "../src/middleware/ownership";
 import type { AppEnv } from "../src/types";
 
 function createTestApp(ownerUserId: string | null) {
@@ -87,5 +90,80 @@ describe("transactionOwnershipGuard", () => {
 
     expect(response.status).toBe(404);
     expect(prepare).not.toHaveBeenCalled();
+  });
+});
+
+describe("categoryOwnershipGuard", () => {
+  it("menolak mutation kategori default", async () => {
+    const first = vi
+      .fn()
+      .mockResolvedValue({ owner_user_id: null, is_default: 1 });
+    const database = {
+      prepare: vi.fn().mockReturnValue({
+        bind: vi.fn().mockReturnValue({ first }),
+      }),
+    } as unknown as D1Database;
+    const environment = {
+      APP_ENV: "development",
+      DB: database,
+    } as Cloudflare.Env;
+    const testApp = new Hono<AppEnv>();
+
+    testApp.use("*", async (context, next) => {
+      context.set("currentUser", {
+        id: "user-1",
+        displayName: "User Satu",
+      });
+      await next();
+    });
+    testApp.patch(
+      "/categories/:categoryId",
+      categoryOwnershipGuard,
+      (context) => context.json({ updated: true }),
+    );
+
+    const response = await testApp.request(
+      "/categories/default-expense-1",
+      { method: "PATCH" },
+      environment,
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  it("mengizinkan pembuat kategori custom", async () => {
+    const first = vi
+      .fn()
+      .mockResolvedValue({ owner_user_id: "user-1", is_default: 0 });
+    const environment = {
+      APP_ENV: "development",
+      DB: {
+        prepare: vi.fn().mockReturnValue({
+          bind: vi.fn().mockReturnValue({ first }),
+        }),
+      } as unknown as D1Database,
+    } as Cloudflare.Env;
+    const testApp = new Hono<AppEnv>();
+
+    testApp.use("*", async (context, next) => {
+      context.set("currentUser", {
+        id: "user-1",
+        displayName: "User Satu",
+      });
+      await next();
+    });
+    testApp.patch(
+      "/categories/:categoryId",
+      categoryOwnershipGuard,
+      (context) => context.json({ updated: true }),
+    );
+
+    const response = await testApp.request(
+      "/categories/custom-1",
+      { method: "PATCH" },
+      environment,
+    );
+
+    expect(response.status).toBe(200);
   });
 });

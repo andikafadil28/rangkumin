@@ -11,11 +11,11 @@ Identitas proyek:
 - Author: Andika Fadil (`@andikafadil28`).
 - Lisensi: MIT, `Copyright (c) 2026 Andika Fadil`.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1 Project Foundation, Phase 2 D1 Database, dan Phase 3 Authentication/Authorization selesai serta terverifikasi pada 5 September 2026.
+- Status: Phase 1 Project Foundation sampai Phase 4 Core Transactions selesai serta terverifikasi pada 5 September 2026.
 
 # CURRENT
 
-Fokus berikutnya: **Phase 4 - Core Transactions**. Implementasikan CRUD income/expense, kategori default dan custom, pagination/filter, ringkasan individu-gabungan, Trash/restore/purge, serta idempotency. Formulaikan terlebih dahulu service layer transaksi sebelum menghubungkan ke router, dan gunakan prepared statement serta ownership guard pada seluruh mutation. Jangan memasukkan email atau identifier pribadi ke Git.
+Fokus berikutnya: **Phase 5 - Savings**. Implementasikan service layer pos tabungan pribadi/bersama, target opsional, setoran, penarikan, transfer antarpos atomik, pencegahan saldo negatif, serta riwayat mutasi. Gunakan prepared statement dan ownership guard pada seluruh mutation. Jangan memasukkan email atau identifier pribadi ke Git.
 
 # ARCHITECTURE
 
@@ -123,13 +123,13 @@ Fokus berikutnya: **Phase 4 - Core Transactions**. Implementasikan CRUD income/e
 
 ## Phase 4 - Core Transactions
 
-- [ ] Implementasikan CRUD pemasukan dan pengeluaran.
-- [ ] Implementasikan kategori default dan custom per pengguna.
-- [ ] Tambahkan pagination dan filter pengguna, periode, tipe, serta kategori.
-- [ ] Implementasikan ringkasan individu dan gabungan.
-- [ ] Implementasikan Trash, restore, dan permanent purge.
-- [ ] Tambahkan idempotency untuk transaksi offline.
-- [ ] Uji happy path, input invalid, unauthorized, ownership, dan duplicate request.
+- [x] Implementasikan CRUD pemasukan dan pengeluaran.
+- [x] Implementasikan kategori default dan custom per pengguna.
+- [x] Tambahkan pagination dan filter pengguna, periode, tipe, serta kategori.
+- [x] Implementasikan ringkasan individu dan gabungan.
+- [x] Implementasikan Trash, restore, dan permanent purge.
+- [x] Tambahkan idempotency untuk transaksi offline.
+- [x] Uji happy path, input invalid, unauthorized, ownership, dan duplicate request.
 
 ## Phase 5 - Savings
 

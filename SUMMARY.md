@@ -13,7 +13,7 @@
 
 # CURRENT
 
-**Phase 1 - Project Foundation, Phase 2 - D1 Database, dan Phase 3 - Authentication/Authorization selesai serta terverifikasi pada 5 September 2026.**
+**Phase 1 sampai Phase 4 - Core Transactions selesai serta terverifikasi pada 5 September 2026.**
 
 Yang sudah tersedia:
 
@@ -31,9 +31,11 @@ Yang sudah tersedia:
 - Ownership guard siap (404/403) untuk seluruh mutation transaksi.
 - User production diprovision via `scripts/provision-production.mjs` tanpa mencetak identitas; secret Access (`ACCESS_AUD`, `ACCESS_TEAM_DOMAIN`) terpasang sebagai Cloudflare Secrets.
 - Endpoint Telegram webhook mendapat bypass Cloudflare Access khusus path, tetap wajib divalidasi secret + allowlist di backend.
-- Verifikasi final: lint, format, typecheck, 16 test (health, trash, identity, ownership, spoofing/access), development/production build lulus.
+- CRUD income/expense, kategori default/custom, filter + offset pagination, ringkasan individu/gabungan, Trash/restore/purge, optimistic locking, dan idempotency offline tersedia melalui protected API.
+- Seluruh mutation memakai ownership guard dan prepared statement; permanent purge hanya menerima transaksi yang sudah berada di Trash.
+- Verifikasi final: lint, format, typecheck, 40 test, development/production build, dan smoke test mutation D1 lokal lulus.
 
-Fokus berikutnya: **Phase 4 - Core Transactions**. Formulaikan service layer transaksi dulu (CRUD, kategori, filter/pagination, ringkasan, Trash, idempotency), lalu hubungkan ke router dengan ownership guard pada seluruh mutation.
+Fokus berikutnya: **Phase 5 - Savings**. Mulai dari service layer pos tabungan pribadi/bersama, lalu implementasikan mutasi saldo dan transfer antarpos secara atomik.
 
 # DECISIONS
 

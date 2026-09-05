@@ -1,5 +1,10 @@
 import { Hono } from "hono";
 import { identityMiddleware } from "./middleware/identity";
+import { categoryRoutes } from "./routes/categories";
+import {
+  transactionQueryRoutes,
+  transactionRoutes,
+} from "./routes/transactions";
 import { purgeExpiredTransactions } from "./services/trash";
 import type { AppEnv } from "./types";
 
@@ -20,6 +25,9 @@ protectedApi.use("*", identityMiddleware);
 protectedApi.get("/me", (context) => {
   return context.json({ user: context.get("currentUser") });
 });
+protectedApi.route("/categories", categoryRoutes);
+protectedApi.route("/transactions", transactionRoutes);
+protectedApi.route("/", transactionQueryRoutes);
 
 app.route("/api", protectedApi);
 
