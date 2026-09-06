@@ -111,6 +111,7 @@ export class ApiError extends Error {
     message: string,
     readonly status: number,
     readonly code?: string,
+    readonly details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -138,6 +139,16 @@ export class InvalidResponseError extends Error {
   }
 }
 
+function isAuthResponse(response: Response, path: string) {
+  const finalUrl = new URL(response.url || path, window.location.origin);
+  return (
+    response.status === 401 ||
+    response.type === "opaqueredirect" ||
+    (response.redirected && finalUrl.origin !== window.location.origin) ||
+    finalUrl.pathname.startsWith("/cdn-cgi/access/")
+  );
+}
+
 export async function requestJson<T>(
   path: string,
   options: RequestInit = {},
@@ -160,15 +171,7 @@ export async function requestJson<T>(
     throw new NetworkError();
   }
 
-  const finalUrl = new URL(response.url || path, window.location.origin);
-  if (
-    response.status === 401 ||
-    response.type === "opaqueredirect" ||
-    (response.redirected && finalUrl.origin !== window.location.origin) ||
-    finalUrl.pathname.startsWith("/cdn-cgi/access/")
-  ) {
-    throw new AuthRequiredError();
-  }
+  if (isAuthResponse(response, path)) throw new AuthRequiredError();
 
   const isJson = response.headers
     .get("content-type")
@@ -182,11 +185,205 @@ export async function requestJson<T>(
       payload?.message ?? `Request gagal (${response.status})`,
       response.status,
       payload?.error,
+      body,
     );
   }
 
   if (!isJson) throw new InvalidResponseError();
   return body as T;
+}
+
+export function safeDownloadFilename(value: string | null, fallback: string) {
+  const match = value?.match(/filename\s*=\s*"?([^";]+)"?/i);
+  const candidate = (match?.[1] ?? fallback)
+    .trim()
+    .replace(/[^A-Za-z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "");
+  return candidate || fallback;
+}
+
+export async function downloadFile(path: string, fallbackFilename: string) {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      credentials: "same-origin",
+      cache: "no-store",
+      redirect: "manual",
+      headers: {
+        Accept:
+          "text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      },
+    });
+  } catch {
+    throw new NetworkError();
+  }
+  if (isAuthResponse(response, path)) throw new AuthRequiredError();
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string;
+      message?: string;
+    } | null;
+    throw new ApiError(
+      payload?.message ?? `Download gagal (${response.status})`,
+      response.status,
+      payload?.error,
+      payload,
+    );
+  }
+  return {
+    blob: await response.blob(),
+    filename: safeDownloadFilename(
+      response.headers.get("content-disposition"),
+      fallbackFilename,
+    ),
+  };
+}
+
+export type ImportIssue = { row: number; field: string; message: string };
+export type ImportPreview = {
+  job_id: string;
+  domain: string;
+  status: "previewed" | "committed";
+  total_rows: number;
+  accepted_rows: number;
+  duplicate_rows: number;
+};
+export type ImportResult = {
+  job_id: string;
+  status: "committed";
+  imported_rows: number;
+  duplicate_rows: number;
+};
+
+export function previewImport(
+  file: File,
+  domain: string,
+  mapping: Record<string, string>,
+  duplicatePolicy: "skip" | "reject",
+  requestKey: string,
+) {
+  const body = new FormData();
+  body.set("file", file);
+  body.set("domain", domain);
+  body.set("mapping", JSON.stringify(mapping));
+  body.set("duplicate_policy", duplicatePolicy);
+  return requestJson<ImportPreview>("/api/import/preview", {
+    method: "POST",
+    headers: { "X-Rangkumin-Import": requestKey },
+    body,
+  });
+}
+
+export function commitImportFile(
+  file: File,
+  jobId: string,
+  requestKey: string,
+) {
+  const body = new FormData();
+  body.set("file", file);
+  return requestJson<ImportResult>(
+    `/api/import/${encodeURIComponent(jobId)}/commit`,
+    {
+      method: "POST",
+      headers: { "X-Rangkumin-Import": requestKey },
+      body,
+    },
+  );
+}
+
+export type ReceiptScanDraft = {
+  type: "expense";
+  amount: number | null;
+  transactionDate: string | null;
+  merchant: string | null;
+  description: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+};
+
+export type ReceiptScanResult = {
+  draft: ReceiptScanDraft;
+  confidence: "low" | "medium" | "high";
+  warnings: string[];
+};
+
+export function scanReceipt(file: File) {
+  const body = new FormData();
+  body.set("file", file);
+  return requestJson<{
+    draft: {
+      type: "expense";
+      amount: number | null;
+      date: string | null;
+      merchant: string | null;
+      description: string | null;
+      category_key: string | null;
+      category_name: string | null;
+      confidence: number;
+      warnings: string[];
+    };
+  }>("/api/receipt-scans", { method: "POST", body }).then((result) => {
+    const draft = result.draft;
+    const confidence =
+      draft.confidence >= 0.8
+        ? "high"
+        : draft.confidence >= 0.5
+          ? "medium"
+          : "low";
+    return {
+      draft: {
+        type: "expense",
+        amount: draft.amount,
+        transactionDate: draft.date,
+        merchant: draft.merchant,
+        description: draft.description,
+        categoryId: draft.category_key,
+        categoryName: draft.category_name,
+      },
+      confidence,
+      warnings: draft.warnings,
+    } satisfies ReceiptScanResult;
+  });
+}
+
+export type PushStatus = {
+  subscribed: boolean;
+  deviceId: string;
+  publicKey: string;
+  expirationTime: number | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export function getPushStatus(deviceId: string) {
+  const query = new URLSearchParams({ device_id: deviceId });
+  return requestJson<PushStatus>(`/api/push/status?${query}`);
+}
+
+export function savePushSubscription(
+  deviceId: string,
+  subscription: PushSubscriptionJSON,
+) {
+  return requestJson<PushStatus>(
+    `/api/push/subscriptions/${encodeURIComponent(deviceId)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        endpoint: subscription.endpoint,
+        expirationTime: subscription.expirationTime ?? null,
+        keys: subscription.keys,
+      }),
+    },
+  );
+}
+
+export function removePushSubscription(deviceId: string) {
+  return sendWithoutResponse(
+    `/api/push/subscriptions/${encodeURIComponent(deviceId)}`,
+    "DELETE",
+  );
 }
 
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
@@ -294,15 +491,7 @@ async function sendWithoutResponse(
   } catch {
     throw new NetworkError();
   }
-  const finalUrl = new URL(response.url || path, window.location.origin);
-  if (
-    response.status === 401 ||
-    response.type === "opaqueredirect" ||
-    (response.redirected && finalUrl.origin !== window.location.origin) ||
-    finalUrl.pathname.startsWith("/cdn-cgi/access/")
-  ) {
-    throw new AuthRequiredError();
-  }
+  if (isAuthResponse(response, path)) throw new AuthRequiredError();
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as {
       message?: string;

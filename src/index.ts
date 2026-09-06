@@ -4,19 +4,23 @@ import { identityMiddleware } from "./middleware/identity";
 import { budgetRoutes } from "./routes/budgets";
 import { categoryRoutes } from "./routes/categories";
 import { notificationRoutes } from "./routes/notifications";
+import { importExportRoutes } from "./routes/import-export";
+import { receiptScanRoutes } from "./routes/receipt-scans";
 import { reminderRoutes } from "./routes/reminders";
 import { savingsRoutes } from "./routes/savings";
 import {
   transactionQueryRoutes,
   transactionRoutes,
 } from "./routes/transactions";
+import { webPushRoutes } from "./routes/web-push";
 import { evaluateBudgetAlerts } from "./services/budgets";
 import {
   processDueReminders,
   processSnoozedOccurrences,
 } from "./services/reminders";
 import { purgeExpiredTransactions } from "./services/trash";
-import type { AppEnv } from "./types";
+import { deliverWebPushNotifications } from "./services/web-push";
+import type { AppBindings, AppEnv } from "./types";
 import { getCurrentMonthRange } from "./utils/date";
 
 export const app = new Hono<AppEnv>();
@@ -48,6 +52,9 @@ protectedApi.get("/me", (context) => {
 protectedApi.route("/budgets", budgetRoutes);
 protectedApi.route("/categories", categoryRoutes);
 protectedApi.route("/notifications", notificationRoutes);
+protectedApi.route("/", importExportRoutes);
+protectedApi.route("/push", webPushRoutes);
+protectedApi.route("/receipt-scans", receiptScanRoutes);
 protectedApi.route("/reminders", reminderRoutes);
 protectedApi.route("/savings", savingsRoutes);
 protectedApi.route("/transactions", transactionRoutes);
@@ -80,16 +87,29 @@ app.onError((error, context) => {
 export default {
   fetch: app.fetch,
   scheduled(controller, environment, executionContext) {
-    const jobs: Promise<unknown>[] = [];
-    if (controller.cron === "15 17 * * *") {
-      jobs.push(purgeExpiredTransactions(environment.DB));
-    }
-    const period = getCurrentMonthRange().from.slice(0, 7);
-    jobs.push(
-      processDueReminders(environment.DB),
-      processSnoozedOccurrences(environment.DB),
-      evaluateBudgetAlerts(environment.DB, period),
+    executionContext.waitUntil(
+      (async () => {
+        const period = getCurrentMonthRange().from.slice(0, 7);
+        await Promise.allSettled([
+          processDueReminders(environment.DB),
+          processSnoozedOccurrences(environment.DB),
+          evaluateBudgetAlerts(environment.DB, period),
+          ...(controller.cron === "15 17 * * *"
+            ? [purgeExpiredTransactions(environment.DB)]
+            : []),
+        ]);
+
+        const vapid = {
+          subject:
+            environment.WEB_PUSH_VAPID_SUBJECT ??
+            "https://rangkumin.dikadevit.my.id",
+          publicKey: environment.WEB_PUSH_VAPID_PUBLIC_KEY ?? "",
+          privateKey: environment.WEB_PUSH_VAPID_PRIVATE_KEY ?? "",
+        };
+        if (vapid.publicKey && vapid.privateKey) {
+          await deliverWebPushNotifications(environment.DB, vapid);
+        }
+      })(),
     );
-    executionContext.waitUntil(Promise.all(jobs));
   },
-} satisfies ExportedHandler<Cloudflare.Env>;
+} satisfies ExportedHandler<AppBindings>;

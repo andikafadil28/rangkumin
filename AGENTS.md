@@ -11,30 +11,25 @@ Identitas proyek:
 - Author: Andika Fadil (`@andikafadil28`).
 - Lisensi: MIT, `Copyright (c) 2026 Andika Fadil`.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1 sampai Phase 8 implementasi selesai dan terverifikasi lokal (64 Worker test + 25 frontend test, lint/typecheck/format/build hijau) serta sudah di-deploy. Deployment production terakhir adalah Phase 8 PWA/offline (`a73f9ca2-85b5-45ed-bc28-77226c6c1b6e`, commit `c976748`, 6 September 2026). Fitur tampilan "Bersama/Saya" (view mode) selesai di working tree, belum di-commit/deploy.
+- Status: Phase 1–11 selesai; Telegram Bot **dibatalkan dan dihapus** digantikan **Scan Struk (Workers AI)** + **Web Push notifikasi**. Terverifikasi lokal: 103 Worker test + 43 frontend test (146), lint/typecheck/format/build hijau, dan sudah di-deploy ke production. Membawa Phase 11 Import/Export, Scan Struk, Web Push, notifikasi transaksi, dan penghapusan runtime Telegram.
 
 # CURRENT
 
-Phase 8 PWA dan Offline sudah di-deploy ke production (Worker version `a73f9ca2-85b5-45ed-bc28-77226c6c1b6e`, commit `c976748`). Fitur baru **view mode "Tampilan Bersama ↔ Tampilan Saya"** selesai diimplementasikan di working tree (belum di-commit/deploy): presentasi-only, per perangkat, default Bersama. Fokus berikutnya: **smoke test UI dua pengguna di production** (user kedua User Dua masih pending), lalu lanjut ke Phase 9 - Telegram.
+Sesi ini: **hapus runtime Telegram Bot**, implementasi **Scan Struk (Workers AI)**, **Web Push notifikasi**, dan **notifikasi transaksi income/expense**, lalu deploy. Import/Export Phase 11 juga selesai dan ikut di-deploy. Semua terverifikasi (146 test) dan dipakai di production.
 
-Hal penting yang diputuskan pada sesi ini:
+Keputusan dan hal penting:
 
-- Nama tampilan disimpan di kolom `display_name` tabel `users` (D1), bukan turunan email. Production: `user-1` = Andika, `user-2` = User Dua; lokal & seed memakai email dummy dengan nama yang sama. Tidak ada email asli di Git.
-- Identitas lokal disimulasikan lewat Vite dev proxy yang menyuntikkan `Cf-Access-Authenticated-User-Email: user1@example.invalid` ke `/api` (`vite.config.ts`); kontrak worker dev tetap memerlukan header (401 tanpa header tetap teruji), production tetap JWT Access saja.
-- Login Google tanpa OTP aktif di Cloudflare Access: IdP **Google** (project GCP `Rangkumin Access`, OAuth web client `Cloudflare Access - Rangkumin`, PKCE ON) adalah satu-satunya login method; Instant Auth aktif; policy Allow → Emails berisi kedua email. Client ID/Secret GCP hanya di dashboard Cloudflare, tidak pernah masuk Git.
-- Tombol logout tersedia di Pengaturan: memakai `clearOfflineDataSafely()` dulu sebelum `window.location.assign("/cdn-cgi/access/logout")`; sudah menjadi bagian dari production Phase 8.
-- PWA/offline: transport API `requestJson` memakai `credentials:"same-origin"`, `cache:"no-store"`, `redirect:"manual"`, dan mendeteksi redirect Cloudflare Access (401/`opaqueredirect`/path `/cdn-cgi/access/`) sebagai `AuthRequiredError`. Backend mematikan caching di `/api` & `/api/*`; `wrangler.jsonc` `run_worker_first`.
-- IndexedDB `rangkumin-offline` (library `idb`) menyimpan snapshot per user dan transaction outbox; snapshot hanya fallback untuk `NetworkError` (bukan sesi kedaluwarsa); outbox dibuat saat offline maupun online (idempotency key + `X-Rangkumin-Actor-Id`, server memvalidasi actor → 409 `Actor Mismatch`); edit/hapus/Trash/tabungan/rencana tetap online-only dan read-only saat data stale. Penulisan IndexedDB bersifat best-effort saat online.
-- Service worker (vite-plugin-pwa injectManifest) hanya meng-cache app shell; `/api` dan `/cdn-cgi/access` selalu bypass. Ikon PWA PNG digenerate dari SVG (sharp `^0.35.2`, script `generate:pwa-icons`); manifest memakai PNG.
-- Security headers/CSP dipasang via `_headers`: `script-src 'self'`, style inline diizinkan untuk progress/chart; `no-referrer`, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Permissions-Policy` minimal. Bootstrap tema dipindah ke `theme-bootstrap.js`.
-- Realtime refresh memakai polling 10 detik (tab aktif) + refresh instan saat focus/visibilitychange + silent refresh; dipasang di dashboard, riwayat transaksi, tabungan, dan rencana; nonaktif saat offline/stale.
-- Tema visual: Bersama, Tenang, dan Minimal (default Bersama), disimpan lokal di `rangkumin-theme`; otomatis light/dark mengikuti perangkat belum diterapkan (keputusan terbuka).
-- Perbaikan bug: `--rose-strong` sebelumnya tidak pernah didefinisikan padahal dipakai tombol danger/progress over; sudah diisi di ketiga tema.
-- Perbaikan production: kategori transaksi sempat kosong karena default categories hanya ada di development seed. Migration `0004_seed_default_categories.sql` sekarang mengisi 4 income, 8 expense, dan 1 saving secara idempotent; sudah diterapkan ke local, remote development, dan production.
-- README.md sudah dibuat; LICENSE, SECURITY.md, CONTRIBUTING.md, dan CI masih menunggu (Phase 12).
-- Deploy production lulus: migration tidak tertunda, lint/typecheck/build hijau, `/api/health` mengembalikan 200, serta root dan protected API tanpa sesi diarahkan ke Cloudflare Access. Version aktif `a73f9ca2-85b5-45ed-bc28-77226c6c1b6e`.
-- View mode: toggle "Tampilan Bersama ↔ Tampilan Saya" (lokal `rangkumin-view`, nilai `couple`|`solo`, default `couple`, presentation-only per perangkat — bukan keamanan). Solo: kartu pasangan disembunyikan, kartu gabungan jadi "Totalku", distribusi kategori milik sendiri, riwayat/Trash terkunci ke milik sendiri, tabungan & rencana dipartisi (pos shared tetap tampil), kontrol di Pengaturan + segmented control di dashboard. Backend tidak berubah: `/api/summary?owner=` sudah mendukung; `/api/savings/overview` & `/api/budgets`/`/api/reminders` difilter client-side via `frontend/src/viewMode.ts`. `getDashboard` refactor identitas-dulu lalu kirim `owner` saat solo.
-- Residual: audit accessibility mendalam (focus trap keyboard, kontras), frontend E2E test, smoke test dua user di production (User Dua belum), uji installability/offline reload di perangkat nyata belum dilakukan.
+- **Telegram dibatalkan.** Runtime bot (routes/services/test/scripts) dihapus total; migration history, kolom, dan channel `notify_telegram` dipertahankan sebagai kompatibilitas historis. Kanal notifikasi aktif: Dashboard + Web Push. Tidak pernah ada secret Telegram di production.
+- **Scan Struk**: `POST /api/receipt-scans` (multipart, Cek MIME/magic/size/origin) memakai Workers AI `@cf/meta/llama-3.2-11b-vision-instruct`. Foto di-resize browser (`receiptImage.ts`, max 1800px, JPEG ≤2 MiB, EXIF ter-strip) dan tidak disimpan ke D1/R2/KV/Cache/IndexedDB. Hasil hanya **draft terkonfirmasi** (tidak auto-submit). Model berbayar unit-based ($0.049/M input, $0.68/M output) — sistem neurons sudah dicabut sesuai docs 2026. Meta license di-accept via request `{"prompt":"agree"}`.
+- **Web Push**: opt-in per perangkat (device UUID di localStorage), `PUT/DELETE /api/push/subscriptions/:deviceId` + `GET /api/push/status`, VAPID RFC 8292 via `@block65/webcrypto-web-push` (`^2.0.0`), max 10 device per user, outbox delivery terpisah (`web_push_deliveries`) dengan lease/retry/cleanup 404-410. Scheduled fan-out reminder & budget memakai `Promise.allSettled` agar tidak memblok schedule.
+- **Notifikasi transaksi**: `notifyTransactionCreated` (`src/services/transactions.ts`) membuat notifikasi `kind='transaction'` untuk pasangan saat income/expense dibuat (title: "X mencatat pengeluaran", body: "Rp50.000 — deskripsi"), dengan `dedupe_key transaction:{id}:{partnerId}`. Fan-out Web Push mencakup `kind IN ('reminder', 'budget_threshold', 'transaction')` dan route POST `/api/transactions` langsung memicu `deliverWebPushNotifications` via `executionCtx.waitUntil` sehingga push sampai tanpa menunggu schedule 15 menit.
+- Service worker: handler `push` + `notificationclick`; deep link dikunci ke `/` karena SPA fallback (`not_found_handling: single-page-application`) belum diaktifkan.
+- VAPID secrets production: `WEB_PUSH_VAPID_SUBJECT`, `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY` via `scripts/set-web-push-secrets.mjs` (`npm run webpush:secrets:production`); config `config/web-push.production.local.json` di-ignore Git. `.dev.vars.example` hanya placeholder.
+- Migration `0005_telegram_delivery.sql`, `0006_import_jobs.sql`, dan `0007_web_push.sql` sudah diterapkan ke local, remote development, dan production. `0007` menormalkan `notify_web=1` untuk reminder/budget yang sebelumnya `notify_telegram`.
+- CSP/`_headers`: `img-src` + `blob:` untuk preview object URL struk; `Permissions-Policy: camera=(self)` untuk input kamera.
+- Phase 11 Import/Export: `src/routes/import-export.ts` + `src/services/{import,export}.ts`; export CSV per domain + Excel (papaparse, read-excel-file, write-excel-file, fflate); import CSV/Excel ber-job với preview/mapping/validasi/duplicate detection/atomic (`0006_import_jobs.sql`); UI `DataTransferPage.tsx` + `frontend/src/importExport.ts`.
+- Test: 103 Worker + 43 frontend = 146 (termasuk receipt-scan, web-push, receiptImage, webPush, import/export, notifikasi transaksi); lint/typecheck/format/build hijau. Smoke: health 200, endpoint diproteksi Access; Scan Struk sukses di production (preview sempat tidak tampil → fix CSS jadi full-width; respons invalid → schema jadi toleran via `normalizeReceiptDraft` + `.passthrough()`). Web Push belum di-smoke-test perangkat nyata; import/export belum diuji penuh dua arah di production.
+- Residual: smoke test dua pengguna (User Dua pending), smoke Web Push di perangkat nyata, uji installability/offline reload, audit accessibility mendalam, frontend E2E test.
 
 Jangan memasukkan email atau identifier pribadi ke Git.
 
@@ -45,7 +40,8 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 - Cloudflare D1 menjadi source of truth.
 - Google Sheets hanya menjadi laporan/mirror data, bukan database utama.
 - Login dua pengguna memakai Cloudflare Access.
-- Telegram Bot memakai webhook, bukan long polling.
+- Scan Struk memakai Cloudflare Workers AI (model vision Meta Llama); hasil hanya draft terkonfirmasi.
+- Notifikasi push memakai Web Push (VAPID) lewat service worker; kanal historis Telegram tidak dipakai.
 - PWA menyimpan app shell, snapshot terakhir, dan offline outbox di IndexedDB.
 - Default timezone `Asia/Jakarta`.
 - Default currency `IDR`; hanya satu currency aktif dan hanya dapat diganti sebelum transaksi pertama.
@@ -85,14 +81,14 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 - Anggaran ditentukan manual per kategori untuk pengguna tertentu atau bersama.
 - Anggaran berulang otomatis setiap bulan dan sisa bulan sebelumnya tidak dibawa ke bulan berikutnya.
 - Ambang notifikasi dapat dikonfigurasi sendiri.
-- Notifikasi dapat dikirim melalui dashboard, Telegram, atau keduanya.
+- Notifikasi dapat dikirim melalui dashboard, Web Push, atau keduanya.
 - Anggaran hanya memberi peringatan dan tidak memblokir transaksi.
 
 ## Pengingat
 
 - Pengingat dapat dijadwalkan sekali, setiap beberapa hari, mingguan, atau bulanan.
 - Penerima dapat dipilih: pengguna tertentu atau keduanya.
-- Telegram menyediakan aksi Sudah Dibayar, Ingatkan Lagi, dan Catat sebagai Pengeluaran.
+- Web Push menyediakan aksi Sudah Dibayar, Ingatkan Lagi, dan Catat sebagai Pengeluaran.
 - Pengingat tidak membuat transaksi otomatis tanpa aksi pengguna.
 
 ## Dashboard dan PWA
@@ -111,8 +107,6 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 
 - Google Sheets terdiri dari dua sheet transaksi, dua sheet ringkasan individu, dan satu sheet tabungan.
 - Kegagalan sinkronisasi Sheets tidak boleh menggagalkan transaksi D1.
-- Telegram mendukung input, notifikasi, `/saldo`, `/ringkasan`, `/tabungan`, `/riwayat`, `/bulan`, dan `/help`.
-- Telegram webhook wajib memakai secret header, allowlist user ID, dan idempotency berdasarkan `update_id`.
 - Export mendukung CSV per domain data dan Excel keseluruhan.
 - Import CSV/Excel wajib memiliki preview, column mapping, validasi, duplicate detection, dan atomic import.
 
@@ -130,7 +124,7 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 ## Phase 2 - D1 Database
 
 - [x] Buat D1 development dan production.
-- [x] Buat migration users, settings, categories, transactions, savings goals, budgets, reminders, Telegram updates, dan sheet sync state.
+- [x] Buat migration users, settings, categories, transactions, savings goals, budgets, reminders, dan sheet sync state.
 - [x] Tambahkan foreign key, unique constraint, ownership field, dan index query utama.
 - [x] Buat idempotent seeder untuk dua pengguna serta kategori default.
 - [x] Buat scheduled purge untuk transaksi di Trash lebih dari 30 hari.
@@ -195,13 +189,7 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 
 ## Phase 9 - Telegram
 
-- [ ] Buat adapter Telegram Bot API dan webhook endpoint.
-- [ ] Simpan token dan webhook secret hanya di Cloudflare Secrets.
-- [ ] Allowlist dua Telegram user ID.
-- [ ] Implementasikan commands input dan query.
-- [ ] Implementasikan inline actions untuk reminder.
-- [ ] Implementasikan notifikasi transaksi dan budget.
-- [ ] Uji invalid secret, unauthorized user, retry webhook, dan duplicate `update_id`.
+- [x] Batalkan fitur Telegram Bot; kanal notifikasi diganti Web Push. Runtime bot (routes/services/test/scripts) dihapus; migration history, kolom, dan channel `notify_telegram` dipertahankan sebagai kompatibilitas historis.
 
 ## Phase 10 - Google Sheets
 
@@ -213,11 +201,11 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 
 ## Phase 11 - Import dan Export
 
-- [ ] Implementasikan export CSV berdasarkan pengguna/domain/periode.
-- [ ] Implementasikan export Excel keseluruhan.
-- [ ] Implementasikan import preview dan column mapping.
-- [ ] Tambahkan validasi, duplicate detection, atomic import, dan result report.
-- [ ] Uji malformed file, formula injection, oversized input, dan partial failure.
+- [x] Implementasikan export CSV berdasarkan pengguna/domain/periode.
+- [x] Implementasikan export Excel keseluruhan.
+- [x] Implementasikan import preview dan column mapping.
+- [x] Tambahkan validasi, duplicate detection, atomic import, dan result report.
+- [x] Uji malformed file, formula injection, oversized input, dan partial failure.
 
 ## Phase 12 - Open Source dan CI
 

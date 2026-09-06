@@ -571,6 +571,7 @@ export async function recordOccurrenceExpense(
   occurrenceId: string,
   userId: string,
   idempotencyKey: string,
+  source: "web" | "telegram" = "web",
 ) {
   const findReplay = () =>
     database
@@ -638,7 +639,7 @@ export async function recordOccurrenceExpense(
         .prepare(
           `INSERT INTO transactions (id, owner_user_id, type, category_id, amount,
            description, transaction_date, source, idempotency_key, created_at, updated_at)
-         SELECT ?, ?, 'expense', ?, ?, ?, ?, 'web', ?, ?, ?
+         SELECT ?, ?, 'expense', ?, ?, ?, ?, ?, ?, ?, ?
          WHERE EXISTS (SELECT 1 FROM reminder_occurrences WHERE id = ? AND status <> 'completed')`,
         )
         .bind(
@@ -648,6 +649,7 @@ export async function recordOccurrenceExpense(
           occurrence.amount,
           occurrence.title,
           transactionDate,
+          source,
           idempotencyKey,
           now,
           now,

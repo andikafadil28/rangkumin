@@ -26,6 +26,7 @@
     "db:seed:development": "wrangler d1 execute DB --remote --env=\"\" --file seeds/development.sql",
     "db:provision:production": "node scripts/provision-production.mjs",
     "access:secrets:production": "node scripts/set-access-secrets.mjs",
+    "webpush:secrets:production": "node scripts/set-web-push-secrets.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit --project tests/tsconfig.json && tsc --noEmit --project frontend-tests/tsconfig.json",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -35,11 +36,16 @@
     "test:frontend": "vitest run --config vitest.frontend.config.ts"
   },
   "dependencies": {
+    "@block65/webcrypto-web-push": "^2.0.0",
+    "fflate": "^0.8.3",
     "hono": "^4.13.5",
     "idb": "^8.0.3",
     "jose": "^6.2.11",
+    "papaparse": "^5.7.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "read-excel-file": "^9.3.10",
+    "write-excel-file": "^4.1.1",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -47,6 +53,7 @@
     "@cloudflare/workers-types": "^5.20260904.1",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.0.0",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",

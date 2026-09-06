@@ -1,6 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  getPushStatus,
+  removePushSubscription,
+  savePushSubscription,
+} from "./api";
 import { clearOfflineDataSafely } from "./offline/sync";
 import type { ViewMode } from "./viewMode";
+import {
+  createBrowserPushDependencies,
+  disablePushSubscription,
+  enablePushSubscription,
+  getPushAvailability,
+  getPushDeviceId,
+  reconcilePushSubscription,
+  unsubscribePushBestEffort,
+} from "./webPush";
 
 type Theme = "together" | "calm" | "minimal";
 
@@ -13,6 +27,7 @@ export function SettingsPage({
   onThemeChange,
   onBalanceToggle,
   onOpenTrash,
+  onOpenDataTransfer,
   offlineCount,
 }: {
   displayName: string;
@@ -23,12 +38,71 @@ export function SettingsPage({
   onThemeChange: (theme: Theme) => void;
   onBalanceToggle: () => void;
   onOpenTrash: () => void;
+  onOpenDataTransfer: () => void;
   offlineCount: number;
 }) {
   const [clearing, setClearing] = useState(false);
   const [cleared, setCleared] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(true);
+  const [pushMessage, setPushMessage] = useState<string | null>(null);
+  const pushAvailability = getPushAvailability();
+  const pushDependencies = createBrowserPushDependencies({
+    getStatus: getPushStatus,
+    save: savePushSubscription,
+    remove: removePushSubscription,
+  });
+
+  useEffect(() => {
+    if (!pushAvailability.supported) {
+      setPushBusy(false);
+      setPushMessage(pushAvailability.message);
+      return;
+    }
+    let active = true;
+    reconcilePushSubscription(getPushDeviceId(), pushDependencies)
+      .then((enabled) => {
+        if (active) setPushEnabled(enabled);
+      })
+      .catch(() => {
+        if (active)
+          setPushMessage("Status notifikasi belum dapat diperiksa saat ini.");
+      })
+      .finally(() => {
+        if (active) setPushBusy(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function togglePush() {
+    if (!pushAvailability.supported) return;
+    setPushBusy(true);
+    setPushMessage(null);
+    try {
+      const deviceId = getPushDeviceId();
+      if (pushEnabled) {
+        await disablePushSubscription(deviceId, pushDependencies);
+        setPushEnabled(false);
+        setPushMessage("Notifikasi perangkat sudah dinonaktifkan.");
+      } else {
+        await enablePushSubscription(deviceId, pushDependencies);
+        setPushEnabled(true);
+        setPushMessage("Notifikasi perangkat sudah aktif.");
+      }
+    } catch (error) {
+      setPushMessage(
+        error instanceof Error
+          ? error.message
+          : "Pengaturan notifikasi belum dapat disimpan.",
+      );
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   async function clearDevice() {
     if (
@@ -60,6 +134,9 @@ export function SettingsPage({
     setLoggingOut(true);
     setStorageError(null);
     try {
+      if (pushAvailability.supported) {
+        await unsubscribePushBestEffort(pushDependencies);
+      }
       await clearOfflineDataSafely();
       window.location.assign("/cdn-cgi/access/logout");
     } catch {
@@ -159,6 +236,51 @@ export function SettingsPage({
               <small>Hanya data dan pos milikmu</small>
             </button>
           </div>
+        </section>
+        <section className="settings-card setting-row">
+          <div className="setting-copy">
+            <h2>Notifikasi perangkat</h2>
+            <p>
+              Terima pengingat dan kabar penting meski Rangkumin sedang tidak
+              dibuka. Pengaturan ini hanya berlaku di perangkat ini.
+            </p>
+            {pushMessage && (
+              <small
+                className={!pushAvailability.supported ? "form-error" : ""}
+                role={pushAvailability.supported ? "status" : "alert"}
+              >
+                {pushMessage}
+              </small>
+            )}
+          </div>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={pushBusy || !pushAvailability.supported}
+            onClick={() => void togglePush()}
+          >
+            {pushBusy
+              ? "Memeriksa..."
+              : pushEnabled
+                ? "Nonaktifkan"
+                : "Aktifkan"}
+          </button>
+        </section>
+        <section className="settings-card setting-row">
+          <div className="setting-copy">
+            <h2>Import & export data</h2>
+            <p>
+              Download salinan CSV/XLSX atau import data dengan preview dan
+              validasi terlebih dahulu.
+            </p>
+          </div>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={onOpenDataTransfer}
+          >
+            Kelola data
+          </button>
         </section>
         <section className="settings-card setting-row">
           <div className="setting-copy">

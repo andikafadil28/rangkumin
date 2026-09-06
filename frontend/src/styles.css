@@ -1472,6 +1472,112 @@ h3 {
   background: color-mix(in srgb, var(--expense) 9%, transparent);
   font-size: 0.72rem;
 }
+.receipt-scanner {
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--surface) 62%, transparent);
+}
+.receipt-scanner-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+.receipt-scanner-heading h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.receipt-scanner-heading p {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.receipt-scanner-heading small {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+.receipt-scanner-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+.receipt-file-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.6rem;
+  border-radius: 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  overflow: hidden;
+}
+.receipt-file-button input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.receipt-file-button input:disabled {
+  cursor: not-allowed;
+}
+.receipt-file-button:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.receipt-file-button:focus-within {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}
+.receipt-scan-progress {
+  margin: 0.8rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.receipt-review {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+}
+.receipt-review img {
+  width: 100%;
+  max-height: 10rem;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--line) 30%, transparent);
+}
+.receipt-review strong {
+  display: block;
+  font-size: 0.78rem;
+}
+.receipt-review p {
+  margin: 0.25rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.receipt-warnings {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.7rem;
+  color: var(--expense);
+}
+.receipt-warnings li + li {
+  margin-top: 0.2rem;
+}
+.receipt-warnings-empty {
+  font-size: 0.72rem;
+}
 .form-actions {
   display: grid;
   grid-template-columns: 0.7fr 1fr;
@@ -2167,6 +2273,328 @@ h3 {
   max-width: 58rem;
   margin-inline: auto;
 }
+.data-transfer-page {
+  max-width: 78rem;
+  margin-inline: auto;
+}
+.transfer-heading .secondary-button {
+  flex: 0 0 auto;
+}
+.transfer-offline {
+  display: flex;
+  gap: 0.7rem;
+  margin: -0.7rem 0 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--rose) 38%, var(--line));
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--rose) 8%, var(--surface));
+  font-size: 0.72rem;
+}
+.transfer-offline span {
+  color: var(--muted);
+}
+.transfer-layout {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.8fr) minmax(28rem, 1.2fr);
+  gap: 1rem;
+  align-items: start;
+}
+.transfer-panel {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.1rem, 2vw, 1.5rem);
+  border: 1px solid var(--line);
+  border-radius: 1.15rem;
+  background: var(--surface);
+}
+.transfer-panel-head {
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+.transfer-panel-head > span {
+  display: grid;
+  width: 2.8rem;
+  height: 2.8rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.8rem;
+  color: var(--forest-deep);
+  background: var(--surface-soft);
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+.transfer-panel-head h2,
+.mapping-head h3,
+.preview-summary h3,
+.import-result h3 {
+  margin: 0.15rem 0 0;
+}
+.transfer-panel-head p:last-child,
+.mapping-head p,
+.preview-summary > p:not(.eyebrow),
+.import-result > p:not(.eyebrow) {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+.transfer-fields,
+.mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.transfer-fields label,
+.mapping-grid label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.transfer-fields label > span,
+.mapping-grid label > span,
+.duplicate-policy legend {
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 750;
+}
+.transfer-fields input,
+.transfer-fields select,
+.mapping-grid select {
+  width: 100%;
+  min-height: 2.8rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  color: var(--ink);
+  outline: 0;
+  background: var(--surface);
+}
+.transfer-fields input[type="file"] {
+  padding: 0.55rem;
+  font-size: 0.66rem;
+}
+.transfer-fields input:focus,
+.transfer-fields select:focus,
+.mapping-grid select:focus {
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--forest) 15%, transparent);
+}
+.transfer-fields small,
+.transfer-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+.transfer-check {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+.transfer-check input {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  margin-top: 0.05rem;
+  accent-color: var(--forest);
+}
+.transfer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding-top: 0.2rem;
+}
+.transfer-actions button:disabled,
+.transfer-fields :disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.wizard-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  list-style: none;
+}
+.wizard-steps li {
+  padding: 0.55rem;
+  border-radius: 0.55rem;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.63rem;
+  font-weight: 750;
+}
+.wizard-steps li[aria-current="step"] {
+  color: var(--ink);
+  background: var(--surface-soft);
+}
+.mapping-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.35rem;
+}
+.mapping-head h3 {
+  font-size: 0.9rem;
+}
+.mapping-head > span {
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  color: var(--forest-deep);
+  background: var(--surface-soft);
+  font-size: 0.6rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.mapping-grid code,
+.preview-summary code,
+.import-result code {
+  font-size: 0.62rem;
+}
+.sample-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+}
+.sample-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.63rem;
+  white-space: nowrap;
+}
+.sample-table caption {
+  padding: 0.65rem;
+  color: var(--muted);
+  text-align: left;
+  background: var(--surface-soft);
+}
+.sample-table th,
+.sample-table td {
+  max-width: 12rem;
+  padding: 0.6rem 0.7rem;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  text-overflow: ellipsis;
+}
+.duplicate-policy {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.duplicate-policy legend {
+  margin-bottom: 0.45rem;
+}
+.duplicate-policy label {
+  display: flex;
+  gap: 0.55rem;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  cursor: pointer;
+}
+.duplicate-policy input {
+  accent-color: var(--forest);
+}
+.duplicate-policy span {
+  display: grid;
+  gap: 0.15rem;
+}
+.duplicate-policy b {
+  font-size: 0.67rem;
+}
+.duplicate-policy small {
+  color: var(--muted);
+  font-size: 0.59rem;
+}
+.preview-summary,
+.import-result {
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--forest) 30%, var(--line));
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--sage) 8%, var(--surface));
+}
+.preview-summary dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+  margin: 1rem 0;
+}
+.preview-summary dl > div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem;
+  border-radius: 0.65rem;
+  background: var(--surface);
+}
+.preview-summary dt {
+  color: var(--muted);
+  font-size: 0.58rem;
+}
+.preview-summary dd {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 850;
+}
+.confirm-check {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+.import-issues {
+  padding: 0.9rem;
+  border-radius: 0.8rem;
+  color: var(--expense);
+  background: color-mix(in srgb, var(--expense) 8%, var(--surface));
+}
+.import-issues h3 {
+  font-size: 0.78rem;
+}
+.import-issues ul {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 14rem;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.import-issues li {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.63rem;
+}
+.import-result {
+  display: grid;
+  justify-items: start;
+  gap: 0.55rem;
+}
+.import-result > span {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: var(--income);
+  font-weight: 850;
+}
+.import-result .secondary-button {
+  margin-top: 0.5rem;
+}
 .settings-grid {
   display: grid;
   gap: 0.75rem;
@@ -2537,6 +2965,9 @@ h3 {
     margin-left: 0;
     padding: 1.3rem 1rem 6.5rem;
   }
+  .transfer-layout {
+    grid-template-columns: 1fr;
+  }
   .topbar {
     align-items: center;
     flex-wrap: wrap;
@@ -2777,6 +3208,15 @@ h3 {
   .form-grid {
     grid-template-columns: 1fr;
   }
+  .receipt-scanner-actions {
+    grid-template-columns: 1fr;
+  }
+  .receipt-review {
+    grid-template-columns: 1fr;
+  }
+  .receipt-review img {
+    max-height: 8rem;
+  }
   .savings-hero {
     gap: 0.8rem;
     padding: 1.3rem;
@@ -2822,6 +3262,28 @@ h3 {
   .setting-row {
     align-items: flex-start;
     gap: 1rem;
+  }
+  .transfer-heading {
+    align-items: flex-start;
+  }
+  .transfer-heading .secondary-button {
+    width: 100%;
+  }
+  .transfer-offline,
+  .transfer-actions {
+    flex-direction: column;
+  }
+  .transfer-layout,
+  .transfer-fields,
+  .mapping-grid,
+  .duplicate-policy {
+    grid-template-columns: 1fr;
+  }
+  .transfer-actions button {
+    width: 100%;
+  }
+  .preview-summary dl {
+    gap: 0.35rem;
   }
   .pagination {
     justify-content: space-between;

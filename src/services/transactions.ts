@@ -57,7 +57,7 @@ export type CreateTransactionInput = {
   transactionDate: string;
   categoryId: string;
   description: string | null;
-  source: "web";
+  source: "web" | "telegram";
   idempotencyKey: string;
 };
 
@@ -92,6 +92,50 @@ export type SummaryFilter = {
   dateFrom?: string;
   dateTo?: string;
 };
+
+export async function notifyTransactionCreated(
+  database: D1Database,
+  transaction: TransactionDetail,
+  actorDisplayName: string,
+): Promise<void> {
+  if (transaction.type !== "income" && transaction.type !== "expense") return;
+
+  const partner = await database
+    .prepare(
+      `SELECT id FROM users WHERE is_active = 1 AND id <> ?1 ORDER BY id LIMIT 1`,
+    )
+    .bind(transaction.ownerUserId)
+    .first<{ id: string }>();
+
+  if (!partner) return;
+
+  const typeLabel = transaction.type === "income" ? "pemasukan" : "pengeluaran";
+  const title = `${actorDisplayName} mencatat ${typeLabel}`;
+  const amount = new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 0,
+  }).format(transaction.amount);
+  const body = `Rp${amount}${transaction.description ? ` — ${transaction.description}` : ""}`;
+
+  const now = new Date().toISOString();
+  await database
+    .prepare(
+      `INSERT INTO notifications (
+         id, recipient_user_id, kind, channel, transaction_id,
+         title, body, dedupe_key, scheduled_for
+       ) VALUES (?, ?, 'transaction', 'dashboard', ?, ?, ?, ?, ?)
+       ON CONFLICT(dedupe_key) DO NOTHING`,
+    )
+    .bind(
+      crypto.randomUUID(),
+      partner.id,
+      transaction.id,
+      title.slice(0, 160),
+      body.slice(0, 1000),
+      `transaction:${transaction.id}:${partner.id}`,
+      now,
+    )
+    .run();
+}
 
 export type SummaryItem = {
   userId: string;

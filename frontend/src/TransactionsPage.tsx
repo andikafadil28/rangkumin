@@ -8,6 +8,7 @@ import {
   getTrashedTransactions,
   purgeTransaction,
   restoreTransaction,
+  scanReceipt,
   updateTransaction,
 } from "./api";
 import type { Category, Transaction } from "./api";
@@ -20,6 +21,7 @@ import {
   createOrQueueTransaction,
 } from "./offline/sync";
 import type { ViewMode } from "./viewMode";
+import { combineReceiptDescription, prepareReceiptImage } from "./receiptImage";
 
 const money = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -81,6 +83,19 @@ function displayMoney(value: number, hidden: boolean) {
 }
 
 type TransactionType = "income" | "expense";
+type ReceiptScanResult = {
+  draft: {
+    type: "expense";
+    amount: number | null;
+    transactionDate: string | null;
+    merchant: string | null;
+    description: string | null;
+    categoryId: string | null;
+    categoryName: string | null;
+  };
+  confidence: "low" | "medium" | "high";
+  warnings: string[];
+};
 
 function TransactionForm({
   initialType,
@@ -114,13 +129,78 @@ function TransactionForm({
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldsDirty, setFieldsDirty] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<ReceiptScanResult>();
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(
+    null,
+  );
   const availableCategories = categories.filter(
     (item) => item.type === type && item.isActive,
   );
 
+  useEffect(
+    () => () => {
+      if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
+    },
+    [receiptPreviewUrl],
+  );
+
   function changeType(next: TransactionType) {
+    setFieldsDirty(true);
     setType(next);
     setCategoryId("");
+  }
+
+  async function scanSelectedReceipt(file: File | undefined) {
+    if (!file || transaction || !online) return;
+    if (
+      fieldsDirty &&
+      !window.confirm(
+        "Hasil scan akan mengganti isian yang sudah kamu ubah. Lanjutkan?",
+      )
+    ) {
+      return;
+    }
+
+    setScanning(true);
+    setError(null);
+    try {
+      const preparedFile = await prepareReceiptImage(file);
+      const result: ReceiptScanResult = await scanReceipt(preparedFile);
+      const draft = result.draft;
+      setType("expense");
+      if (draft.amount !== null) setAmount(String(draft.amount));
+      if (draft.transactionDate !== null) setDate(draft.transactionDate);
+      const scannedDescription = combineReceiptDescription(
+        draft.merchant,
+        draft.description,
+      );
+      if (scannedDescription) setDescription(scannedDescription);
+      if (draft.categoryId !== null || draft.categoryName !== null) {
+        const matchedCategory = categories.find(
+          (item) =>
+            item.type === "expense" &&
+            item.isActive &&
+            (item.id === draft.categoryId ||
+              item.name.localeCompare(draft.categoryName ?? "", undefined, {
+                sensitivity: "accent",
+              }) === 0),
+        );
+        if (matchedCategory) setCategoryId(matchedCategory.id);
+      }
+      setScanResult(result);
+      setFieldsDirty(true);
+      setReceiptPreviewUrl(URL.createObjectURL(preparedFile));
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Foto struk belum dapat dipindai.",
+      );
+    } finally {
+      setScanning(false);
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -201,6 +281,85 @@ function TransactionForm({
           </button>
         </div>
         <form onSubmit={submit}>
+          {!transaction && (
+            <section
+              className="receipt-scanner"
+              aria-labelledby="receipt-scanner-title"
+            >
+              <div className="receipt-scanner-heading">
+                <div>
+                  <h3 id="receipt-scanner-title">Scan struk</h3>
+                  <p>Isi draft pengeluaran dari foto, lalu periksa hasilnya.</p>
+                </div>
+                {!online && <small>Memerlukan koneksi internet.</small>}
+              </div>
+              <div className="receipt-scanner-actions">
+                <label className="secondary-button receipt-file-button">
+                  <span>{scanning ? "Memindai..." : "Ambil foto"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    disabled={!online || scanning}
+                    aria-label="Ambil foto struk dengan kamera"
+                    onChange={(event) => {
+                      void scanSelectedReceipt(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+                <label className="secondary-button receipt-file-button">
+                  <span>{scanning ? "Memindai..." : "Pilih dari galeri"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={!online || scanning}
+                    aria-label="Pilih foto struk dari galeri"
+                    onChange={(event) => {
+                      void scanSelectedReceipt(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+              {scanning && (
+                <p className="receipt-scan-progress" role="status">
+                  Menyiapkan dan membaca foto struk...
+                </p>
+              )}
+              {scanResult && receiptPreviewUrl && (
+                <aside className="receipt-review" aria-live="polite">
+                  <img src={receiptPreviewUrl} alt="Pratinjau foto struk" />
+                  <div>
+                    <strong>Periksa kembali sebelum menyimpan.</strong>
+                    <p>
+                      Hasil scan tidak disimpan otomatis. Tingkat keyakinan:{" "}
+                      <b>
+                        {scanResult.confidence === "high"
+                          ? "tinggi"
+                          : scanResult.confidence === "medium"
+                            ? "sedang"
+                            : "rendah"}
+                      </b>
+                      .
+                    </p>
+                    {scanResult.warnings.length > 0 && (
+                      <ul className="receipt-warnings">
+                        {scanResult.warnings.map((warning, index) => (
+                          <li key={`${index}-${warning}`}>{warning}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {scanResult.warnings.length === 0 && (
+                      <p className="receipt-warnings-empty">
+                        Tidak ada peringatan tambahan dari hasil scan.
+                      </p>
+                    )}
+                  </div>
+                </aside>
+              )}
+            </section>
+          )}
           <fieldset className="type-picker">
             <legend>Jenis transaksi</legend>
             <button
@@ -227,9 +386,10 @@ function TransactionForm({
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={amount}
-                onChange={(event) =>
-                  setAmount(event.target.value.replace(/\D/g, ""))
-                }
+                onChange={(event) => {
+                  setFieldsDirty(true);
+                  setAmount(event.target.value.replace(/\D/g, ""));
+                }}
                 placeholder="0"
                 required
               />
@@ -240,7 +400,10 @@ function TransactionForm({
               <span>Kategori</span>
               <select
                 value={categoryId}
-                onChange={(event) => setCategoryId(event.target.value)}
+                onChange={(event) => {
+                  setFieldsDirty(true);
+                  setCategoryId(event.target.value);
+                }}
                 required
               >
                 <option value="">Pilih kategori</option>
@@ -256,7 +419,10 @@ function TransactionForm({
               <input
                 type="date"
                 value={date}
-                onChange={(event) => setDate(event.target.value)}
+                onChange={(event) => {
+                  setFieldsDirty(true);
+                  setDate(event.target.value);
+                }}
                 required
               />
             </label>
@@ -267,7 +433,10 @@ function TransactionForm({
             </span>
             <textarea
               value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              onChange={(event) => {
+                setFieldsDirty(true);
+                setDescription(event.target.value);
+              }}
               maxLength={500}
               rows={3}
               placeholder="Makan siang, gaji bulan ini..."

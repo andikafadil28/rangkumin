@@ -12,12 +12,14 @@ import {
   createTransaction,
   getTransaction,
   listTransactions,
+  notifyTransactionCreated,
   purgeTransaction,
   restoreTransaction,
   softDeleteTransaction,
   summarizeTransactions,
   updateTransaction,
 } from "../services/transactions";
+import { deliverWebPushNotifications } from "../services/web-push";
 import type { AppEnv } from "../types";
 import { getCurrentMonthRange } from "../utils/date";
 
@@ -73,6 +75,33 @@ transactionRoutes.post("/", async (context) => {
 
     if (result.replayed) {
       context.header("Idempotency-Replayed", "true");
+    } else {
+      try {
+        await notifyTransactionCreated(
+          context.env.DB,
+          result.transaction,
+          currentUser.displayName,
+        );
+      } catch (error) {
+        console.error("Gagal membuat notifikasi transaksi", error);
+      }
+
+      try {
+        const vapid = {
+          subject:
+            context.env.WEB_PUSH_VAPID_SUBJECT ??
+            "https://rangkumin.dikadevit.my.id",
+          publicKey: context.env.WEB_PUSH_VAPID_PUBLIC_KEY ?? "",
+          privateKey: context.env.WEB_PUSH_VAPID_PRIVATE_KEY ?? "",
+        };
+        if (vapid.publicKey && vapid.privateKey) {
+          context.executionCtx.waitUntil(
+            deliverWebPushNotifications(context.env.DB, vapid),
+          );
+        }
+      } catch {
+        // executionCtx tidak tersedia (misalnya saat load testing lokal).
+      }
     }
 
     return context.json(

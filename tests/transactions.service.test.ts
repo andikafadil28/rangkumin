@@ -8,6 +8,7 @@ import {
 import {
   createTransaction,
   listTransactions,
+  notifyTransactionCreated,
   purgeTransaction,
   softDeleteTransaction,
   summarizeTransactions,
@@ -357,5 +358,124 @@ describe("summarizeTransactions", () => {
     expect(result.combined.expense).toBe(1500000);
     expect(result.combined.net).toBe(8500000);
     expect(result.combined.categories).toHaveLength(2);
+  });
+});
+
+describe("notifyTransactionCreated", () => {
+  it("membuat notifikasi dashboard untuk pasangan pada income/expense", async () => {
+    const database = createFakeDatabase([
+      {
+        match: (sql) => sql.includes("FROM users"),
+        response: { first: { id: "user-2" } },
+      },
+      {
+        match: (sql) => sql.includes("INSERT INTO notifications"),
+        response: { changes: 1 },
+      },
+    ]);
+
+    await notifyTransactionCreated(
+      database,
+      {
+        id: "transaction-1",
+        ownerUserId: "user-1",
+        type: "expense",
+        amount: 50000,
+        categoryId: "expense-default-1",
+        description: "Makan siang",
+        transactionDate: "2026-09-05",
+        source: "web",
+        version: 1,
+        deletedAt: null,
+        purgeAfter: null,
+        createdAt: "2026-09-05T00:00:00.000Z",
+        updatedAt: "2026-09-05T00:00:00.000Z",
+        category: {
+          id: "expense-default-1",
+          name: "Makanan & Minuman",
+          type: "expense",
+        },
+      },
+      "Andika",
+    );
+
+    const insert = database.calls.find((call) =>
+      call.sql.includes("INSERT INTO notifications"),
+    );
+    expect(insert).toBeDefined();
+    expect(insert!.sql).toContain("'transaction', 'dashboard'");
+    expect(insert!.sql).toContain("ON CONFLICT(dedupe_key) DO NOTHING");
+    expect(insert!.bind).toEqual([
+      expect.any(String),
+      "user-2",
+      "transaction-1",
+      "Andika mencatat pengeluaran",
+      "Rp50.000 — Makan siang",
+      "transaction:transaction-1:user-2",
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+    ]);
+  });
+
+  it("mengabaikan transaksi non income/expense", async () => {
+    const database = createFakeDatabase([]);
+
+    await notifyTransactionCreated(
+      database,
+      {
+        id: "transaction-2",
+        ownerUserId: "user-1",
+        type: "saving_deposit",
+        amount: 50000,
+        categoryId: null,
+        description: null,
+        transactionDate: "2026-09-05",
+        source: "web",
+        version: 1,
+        deletedAt: null,
+        purgeAfter: null,
+        createdAt: "2026-09-05T00:00:00.000Z",
+        updatedAt: "2026-09-05T00:00:00.000Z",
+        category: null,
+      },
+      "Andika",
+    );
+
+    expect(database.calls).toHaveLength(0);
+  });
+
+  it("tidak membuat notifikasi tanpa pasangan aktif", async () => {
+    const database = createFakeDatabase([
+      {
+        match: (sql) => sql.includes("FROM users"),
+        response: { first: null },
+      },
+    ]);
+
+    await notifyTransactionCreated(
+      database,
+      {
+        id: "transaction-1",
+        ownerUserId: "user-1",
+        type: "expense",
+        amount: 50000,
+        categoryId: "expense-default-1",
+        description: null,
+        transactionDate: "2026-09-05",
+        source: "web",
+        version: 1,
+        deletedAt: null,
+        purgeAfter: null,
+        createdAt: "2026-09-05T00:00:00.000Z",
+        updatedAt: "2026-09-05T00:00:00.000Z",
+        category: null,
+      },
+      "Andika",
+    );
+
+    expect(
+      database.calls.some((call) =>
+        call.sql.includes("INSERT INTO notifications"),
+      ),
+    ).toBe(false);
   });
 });

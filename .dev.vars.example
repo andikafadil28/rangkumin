@@ -1,3 +1,9 @@
 # Salin menjadi .dev.vars untuk local development.
 # Credential dan identifier pribadi ditambahkan pada fase integrasi.
 APP_ENV="development"
+
+# Web Push (VAPID) - hanya placeholder, bukan pasangan key produksi.
+# Public key tetap dikirim ke browser, private key wajib dirahasiakan.
+# WEB_PUSH_VAPID_SUBJECT="https://rangkumin.dikadevit.my.id"
+# WEB_PUSH_VAPID_PUBLIC_KEY=""
+# WEB_PUSH_VAPID_PRIVATE_KEY=""

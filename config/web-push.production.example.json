@@ -1,0 +1,5 @@
+{
+  "WEB_PUSH_VAPID_SUBJECT": "mailto:replace-with-contact@example.invalid",
+  "WEB_PUSH_VAPID_PUBLIC_KEY": "replace-with-url-safe-vapid-public-key",
+  "WEB_PUSH_VAPID_PRIVATE_KEY": "replace-with-url-safe-vapid-private-key"
+}

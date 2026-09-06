@@ -49,7 +49,7 @@ const demoBudgets: Budget[] = [
         id: "threshold-1",
         percentage: 80,
         notifyWeb: true,
-        notifyTelegram: true,
+        notifyTelegram: false,
       },
     ],
   },
@@ -89,7 +89,7 @@ const demoReminders: Reminder[] = [
     timezone: "Asia/Jakarta",
     isActive: true,
     notifyWeb: true,
-    notifyTelegram: true,
+    notifyTelegram: false,
     recipientUserIds: ["demo-user-1", "demo-user-2"],
   },
   {
@@ -174,12 +174,6 @@ function PlanDialog({
     if (!reminder || reminder.recipientUserIds.length > 1) return "both";
     return reminder.recipientUserIds[0] === userId ? "me" : "partner";
   });
-  const [web, setWeb] = useState(
-    budget?.thresholds[0]?.notifyWeb ?? reminder?.notifyWeb ?? true,
-  );
-  const [telegram, setTelegram] = useState(
-    budget?.thresholds[0]?.notifyTelegram ?? reminder?.notifyTelegram ?? false,
-  );
   const [active, setActive] = useState(
     budget?.isActive ?? reminder?.isActive ?? true,
   );
@@ -210,8 +204,6 @@ function PlanDialog({
       const numericAmount = Number(amount);
       if (!Number.isSafeInteger(numericAmount) || numericAmount <= 0)
         throw new Error("Nominal harus berupa angka bulat lebih dari nol.");
-      if (!web && !telegram)
-        throw new Error("Pilih minimal satu kanal notifikasi.");
       if (type === "budget") {
         const numericThreshold = Number(threshold);
         if (!categoryId || numericThreshold < 1 || numericThreshold > 100)
@@ -219,8 +211,8 @@ function PlanDialog({
         const thresholds = [
           {
             percentage: numericThreshold,
-            notify_web: web,
-            notify_telegram: telegram,
+            notify_web: true,
+            notify_telegram: false,
           },
         ];
         if (budget) {
@@ -263,8 +255,8 @@ function PlanDialog({
           interval_value: numericInterval ?? null,
           next_run_at: `${runAt}:00+07:00`,
           recipient_user_ids: recipients,
-          notify_web: web,
-          notify_telegram: telegram,
+          notify_web: true,
+          notify_telegram: false,
         };
         if (reminder)
           await updateReminder(reminder.id, {
@@ -533,22 +525,7 @@ function PlanDialog({
           )}
           <fieldset className="channel-picker">
             <legend>Kirim notifikasi melalui</legend>
-            <label>
-              <input
-                type="checkbox"
-                checked={web}
-                onChange={(event) => setWeb(event.target.checked)}
-              />{" "}
-              Dashboard
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={telegram}
-                onChange={(event) => setTelegram(event.target.checked)}
-              />{" "}
-              Telegram
-            </label>
+            <span>Dashboard</span>
           </fieldset>
           {(budget || reminder) && (
             <label className="active-plan-toggle">
@@ -891,11 +868,7 @@ export function PlansPage({
                     ? ` · ${hidden ? "Rp ••••••" : money.format(reminder.amount)}`
                     : ""}
                 </p>
-                <small>
-                  {reminder.notifyWeb ? "Dashboard" : ""}
-                  {reminder.notifyWeb && reminder.notifyTelegram ? " + " : ""}
-                  {reminder.notifyTelegram ? "Telegram" : ""}
-                </small>
+                <small>Dashboard</small>
               </div>
               {online && !stale && reminder.creatorUserId === userId ? (
                 <button

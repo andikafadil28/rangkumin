@@ -5,6 +5,7 @@ import { TransactionsPage } from "./TransactionsPage";
 import { SavingsPage } from "./SavingsPage";
 import { PlansPage } from "./PlansPage";
 import { SettingsPage } from "./SettingsPage";
+import { DataTransferPage } from "./DataTransferPage";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { useAutoRefresh } from "./useAutoRefresh";
 import { loadDashboardSnapshot } from "./offline/snapshots";
@@ -14,7 +15,8 @@ import type { ViewMode } from "./viewMode";
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>;
 type Theme = "together" | "calm" | "minimal";
-type Page = "home" | "transactions" | "savings" | "plans" | "settings";
+type Page =
+  "home" | "transactions" | "savings" | "plans" | "settings" | "data-transfer";
 
 const money = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -351,10 +353,20 @@ export function App() {
         <nav aria-label="Navigasi utama">
           {navItems.map(([page, label, icon]) => (
             <button
-              className={activePage === page ? "active" : ""}
+              className={
+                activePage === page ||
+                (page === "settings" && activePage === "data-transfer")
+                  ? "active"
+                  : ""
+              }
               key={label}
               type="button"
-              aria-current={activePage === page ? "page" : undefined}
+              aria-current={
+                activePage === page ||
+                (page === "settings" && activePage === "data-transfer")
+                  ? "page"
+                  : undefined
+              }
               onClick={() => setActivePage(page)}
             >
               <Icon name={icon} />
@@ -491,7 +503,18 @@ export function App() {
           </div>
         )}
 
-        {activePage === "transactions" && data ? (
+        {activePage === "data-transfer" && data ? (
+          <DataTransferPage
+            userId={data.user.id}
+            partnerId={
+              data.summary.byUser.find((item) => item.userId !== data.user.id)
+                ?.userId
+            }
+            viewMode={viewMode}
+            online={offline.online && !snapshotState.stale}
+            onBack={() => setActivePage("settings")}
+          />
+        ) : activePage === "transactions" && data ? (
           <TransactionsPage
             userId={data.user.id}
             initialCategories={data.categories}
@@ -537,6 +560,7 @@ export function App() {
               setTrashIntent(true);
               setActivePage("transactions");
             }}
+            onOpenDataTransfer={() => setActivePage("data-transfer")}
             offlineCount={offline.pending + offline.failed}
           />
         ) : activePage !== "home" ? (
@@ -891,10 +915,20 @@ export function App() {
       <nav className="mobile-nav" aria-label="Navigasi mobile">
         {navItems.map(([page, label, icon]) => (
           <button
-            className={activePage === page ? "active" : ""}
+            className={
+              activePage === page ||
+              (page === "settings" && activePage === "data-transfer")
+                ? "active"
+                : ""
+            }
             key={label}
             type="button"
-            aria-current={activePage === page ? "page" : undefined}
+            aria-current={
+              activePage === page ||
+              (page === "settings" && activePage === "data-transfer")
+                ? "page"
+                : undefined
+            }
             onClick={() => setActivePage(page)}
           >
             <Icon name={icon} />

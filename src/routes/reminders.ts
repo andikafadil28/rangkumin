@@ -65,8 +65,8 @@ reminderRoutes.post("/", async (context) => {
       intervalValue: body.interval_value ?? null,
       nextRunAt: body.next_run_at,
       recipientUserIds: body.recipient_user_ids,
-      notifyWeb: body.notify_web,
-      notifyTelegram: body.notify_telegram,
+      notifyWeb: true,
+      notifyTelegram: false,
     });
     return context.json({ reminder }, 201);
   } catch (error) {
@@ -90,8 +90,8 @@ reminderRoutes.patch("/:reminderId", reminderCreatorGuard, async (context) => {
         intervalValue: body.interval_value,
         nextRunAt: body.next_run_at,
         recipientUserIds: body.recipient_user_ids,
-        notifyWeb: body.notify_web,
-        notifyTelegram: body.notify_telegram,
+        notifyWeb: true,
+        notifyTelegram: false,
         isActive: body.is_active,
       },
     );
