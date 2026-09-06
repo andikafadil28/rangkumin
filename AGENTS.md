@@ -11,11 +11,25 @@ Identitas proyek:
 - Author: Andika Fadil (`@andikafadil28`).
 - Lisensi: MIT, `Copyright (c) 2026 Andika Fadil`.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1 sampai Phase 6 selesai, terverifikasi, dan Phase 6 sudah di-deploy pada 5 September 2026.
+- Status: Phase 1 sampai Phase 7 selesai, terverifikasi, dan UI Phase 7 sudah di-deploy ke production pada 6 September 2026 (Worker version `dcd52d2a-599d-402b-80c3-d3c58509599b`).
 
 # CURRENT
 
-Fokus berikutnya: smoke test protected Phase 6 untuk user pertama sudah lulus; ownership lintas user menunggu session user kedua. Mulai **Phase 7 - Frontend** sambil mempertahankan prepared statement dan ownership guard pada seluruh mutation. Jangan memasukkan email atau identifier pribadi ke Git.
+Phase 7 Frontend selesai, di-push (commit `8fbf603` feat: build Phase 7 frontend, `a9003c4` docs: add project readme), dan di-deploy ke production. Fokus berikutnya: **smoke test UI dengan sesi dua pengguna** lalu **Phase 8 - PWA dan Offline**.
+
+Hal penting yang diputuskan pada sesi ini:
+
+- Nama tampilan disimpan di kolom `display_name` tabel `users` (D1), bukan turunan email. Production: `user-1` = Andika, `user-2` = User Dua; lokal & seed memakai email dummy dengan nama yang sama. Tidak ada email asli di Git.
+- Identitas lokal disimulasikan lewat Vite dev proxy yang menyuntikkan `Cf-Access-Authenticated-User-Email: user1@example.invalid` ke `/api` (`vite.config.ts`); kontrak worker dev tetap memerlukan header (401 tanpa header tetap teruji), production tetap JWT Access saja.
+- Realtime refresh memakai polling 10 detik (tab aktif) + refresh instan saat focus/visibilitychange + silent refresh; dipasang di dashboard, riwayat transaksi, tabungan, dan rencana.
+- Tema visual: Bersama, Tenang, dan Minimal (default Bersama), disimpan lokal di `rangkumin-theme`; otomatis light/dark mengikuti perangkat belum diterapkan (keputusan terbuka).
+- Perbaikan bug: `--rose-strong` sebelumnya tidak pernah didefinisikan padahal dipakai tombol danger/progress over; sudah diisi di ketiga tema.
+- Perbaikan production: kategori transaksi sempat kosong karena default categories hanya ada di development seed. Migration `0004_seed_default_categories.sql` sekarang mengisi 4 income, 8 expense, dan 1 saving secara idempotent; sudah diterapkan ke local, remote development, dan production.
+- README.md sudah dibuat; LICENSE, SECURITY.md, CONTRIBUTING.md, dan CI masih menunggu (Phase 12).
+- Deploy production lulus: migration tidak tertunda, lint/typecheck/62 test/build hijau, `/api/health` mengembalikan 200, serta root dan protected API tanpa sesi diarahkan ke Cloudflare Access.
+- Residual: audit accessibility mendalam (focus trap keyboard, kontras) dan frontend E2E test belum ada; smoke test UI dengan sesi dua user di production belum dilakukan.
+
+Jangan memasukkan email atau identifier pribadi ke Git.
 
 # ARCHITECTURE
 
@@ -77,7 +91,7 @@ Fokus berikutnya: smoke test protected Phase 6 untuk user pertama sudah lulus; o
 ## Dashboard dan PWA
 
 - Visual minimalis, sederhana, dan terasa sebagai aplikasi tabungan pasangan.
-- Mendukung light/dark mode, default mengikuti perangkat, dengan toggle yang disimpan lokal.
+- Tema visual: Bersama, Tenang, dan Minimal dengan token CSS, disimpan lokal di key `rangkumin-theme`, default Bersama. Toggle otomatis light/dark mengikuti perangkat belum diterapkan (keputusan terbuka).
 - Dashboard mengutamakan dua ringkasan individu, lalu kartu ringkasan gabungan.
 - Grafik mencakup income vs expense, distribusi kategori, dan perkembangan tabungan.
 - Web harus responsive dan installable sebagai PWA; bukan aplikasi Android native.
@@ -155,13 +169,13 @@ Fokus berikutnya: smoke test protected Phase 6 untuk user pertama sudah lulus; o
 
 ## Phase 7 - Frontend
 
-- [ ] Buat design system minimalis untuk light/dark mode.
-- [ ] Buat dashboard ringkasan individu dan gabungan.
-- [ ] Buat form serta riwayat transaksi dengan filter dan pagination.
-- [ ] Buat UI tabungan, anggaran, pengingat, Trash, dan settings.
-- [ ] Tambahkan grafik dan responsive layout desktop/mobile.
-- [ ] Tangani loading, empty, validation, error, dan confirmation state.
-- [ ] Verifikasi accessibility dasar, XSS safety, dan mobile usability.
+- [x] Buat design system minimalis (tema Bersama, Tenang, dan Minimal) via token CSS.
+- [x] Buat dashboard ringkasan individu dan gabungan.
+- [x] Buat form serta riwayat transaksi dengan filter dan pagination.
+- [x] Buat UI tabungan, anggaran, pengingat, Trash, dan settings.
+- [x] Tambahkan grafik dan responsive layout desktop/mobile.
+- [x] Tangani loading, empty, validation, error, dan confirmation state.
+- [x] Verifikasi accessibility dasar, XSS safety, dan mobile usability (audit mendalam menyusul di Phase 12).
 
 ## Phase 8 - PWA dan Offline
 

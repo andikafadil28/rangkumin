@@ -13,7 +13,7 @@
 
 # CURRENT
 
-**Phase 1 sampai Phase 6 - Budgets dan Reminders selesai, terverifikasi, dan sudah di-deploy pada 5 September 2026.**
+**Phase 1 sampai Phase 7 selesai dan terverifikasi. UI Phase 7 di-commit & di-push pada 6 September 2026 (`8fbf603` feat, `a9003c4` docs), lalu di-deploy ke production sebagai Worker version `dcd52d2a-599d-402b-80c3-d3c58509599b`.**
 
 Yang sudah tersedia:
 
@@ -45,7 +45,25 @@ Yang sudah tersedia:
 
 Smoke test protected user pertama lulus untuk budget, reminder actions, notification inbox, dan idempotent expense; seluruh fixture sudah dibersihkan. Ownership lintas user menunggu session user kedua.
 
-Fokus berikutnya: **Phase 7 - Frontend**.
+Fokus berikutnya: **smoke test UI dengan sesi dua pengguna** lalu **Phase 8 - PWA dan Offline**.
+
+Yang diselesaikan di Phase 7:
+
+- Frontend React 19 + Vite, build ke `public/` dan disajikan Static Assets tanpa server terpisah.
+- Dashboard ringkasan dua pengguna + gabungan dengan grafik income vs expense, distribusi kategori, dan perkembangan tabungan (tanpa library chart).
+- TransactionsPage dengan filter, pagination, edit, hapus, restore, dan akses Trash; defensive empty/loading/error/confirmation state.
+- SavingsPage mendukung beberapa pos (setoran/penarikan/transfer) dan PlansPage untuk budget & reminder dengan CRUD + status aktif; validasi dan confirmation di semua form dialog.
+- Tiga tema: Bersama (default), Tenang, Minimal via token CSS; pilihan disimpan di `localStorage` `rangkumin-theme`; privasi nominal (hide balances) tersimpan lokal. Indonesian dev proxy di `vite.config.ts` menyuntikkan `Cf-Access-Authenticated-User-Email: user1@example.invalid` ke `/api`; middleware identity & kontrak 401 tetap terjaga, production tetap JWT Access.
+- Realtime refresh: `useAutoRefresh` polling 10 detik (jeda saat tab hidden) + refresh saat focus/visibilitychange + silent refresh; terpasang di dashboard, riwayat, tabungan, dan rencana. Data lama tetap tampil saat refresh menengah (bukan skeleton kosong).
+- Nama tampilan: production `user-1`=Andika / `user-2`=User Dua di D1; lokal & `seeds/development.sql` memakai Andika/User Dua dengan email dummy. Asal nama bukan dari email (fallback demo `frontend/src/demo.ts` sempat berisi "Ari").
+- Bug diperbaiki: `--rose-strong` tidak pernah terdefinisi padahal dipakai tombol danger/progress over; sudah diisi di ketiga tema.
+- Bug production diperbaiki: tabel kategori kosong karena default categories sebelumnya hanya ada di development seed. Migration `0004_seed_default_categories.sql` mengisi 4 income, 8 expense, dan 1 saving secara idempotent; sudah diterapkan ke D1 local, remote development, dan production.
+- `README.md` ditambahkan; LICENSE, SECURITY.md, CONTRIBUTING.md, dan CI masih menunggu (Phase 12).
+- Verifikasi akhir: lint, typecheck, 62 test, build Vite + Wrangler dry-run lulus; repository di-push ke `origin/main` tanpa email asli/secret.
+
+Deploy production terverifikasi: tidak ada migration tertunda, lint/typecheck/62 test/build lulus, `/api/health` merespons 200, serta root dan protected API tanpa sesi merespons 302 ke Cloudflare Access.
+
+Residual: audit accessibility mendalam (focus trap keyboard, kontras) dan frontend E2E test belum ada; smoke test UI dengan sesi dua user di production belum dilakukan.
 
 # DECISIONS
 
@@ -58,7 +76,8 @@ Fokus berikutnya: **Phase 7 - Frontend**.
 - Tabungan memiliki beberapa pos, target opsional, setoran, penarikan, dan transfer.
 - Anggaran berulang bulanan, reset tiap bulan, dengan custom warning threshold.
 - PWA dapat melihat snapshot terakhir dan membuat transaksi saat offline, lalu sync otomatis.
-- UI minimalis untuk pasangan, responsive, serta mendukung light/dark mode.
+- UI minimalis untuk pasangan dan responsive; tema Bersama/Tenang/Minimal (token CSS) disimpan lokal di `rangkumin-theme`, default Bersama. Light/dark otomatis mengikuti perangkat belum diterapkan (keputusan terbuka).
+- Realtime refresh memakai polling 10 detik + refresh saat focus/visibilitychange + silent refresh (data lama tetap tampil saat refresh).
 - Default currency IDR dan timezone Asia/Jakarta.
 - Transaksi yang dihapus masuk Trash selama 30 hari.
 - Telegram memakai webhook dengan secret, allowlist, dan idempotency.
