@@ -25,7 +25,7 @@ export function NotificationsPanel({
       .then(({ notifications }) => setItems(notifications))
       .catch((cause: unknown) => {
         if (controller.signal.aborted) return;
-        if (import.meta.env.DEV) {
+        if (import.meta.env.VITE_DEMO_MODE === "true") {
           setItems([
             {
               id: "notification-demo",
@@ -61,7 +61,10 @@ export function NotificationsPanel({
     try {
       await markNotificationRead(item.id);
     } catch (cause) {
-      if (!(import.meta.env.DEV && cause instanceof TypeError)) return;
+      if (!(
+        import.meta.env.VITE_DEMO_MODE === "true" && cause instanceof TypeError
+      ))
+        return;
     }
     setItems((current) =>
       current.map((entry) =>

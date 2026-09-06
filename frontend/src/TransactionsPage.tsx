@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useAutoRefresh } from "./useAutoRefresh";
 import {
-  createTransaction,
   deleteTransaction,
   getCategories,
   getTransactions,
@@ -12,6 +11,14 @@ import {
   updateTransaction,
 } from "./api";
 import type { Category, Transaction } from "./api";
+import { loadWithSnapshot } from "./offline/snapshots";
+import { getOutboxItems } from "./offline/db";
+import type { TransactionOutboxItem } from "./offline/db";
+import {
+  OUTBOX_CHANGED_EVENT,
+  TRANSACTION_SYNCED_EVENT,
+  createOrQueueTransaction,
+} from "./offline/sync";
 
 const money = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -78,14 +85,18 @@ function TransactionForm({
   initialType,
   transaction,
   categories,
+  actorUserId,
+  online,
   onClose,
   onSaved,
 }: {
   initialType: TransactionType;
   transaction?: Transaction;
   categories: Category[];
+  actorUserId: string;
+  online: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (queued: boolean) => void;
 }) {
   const [type, setType] = useState<TransactionType>(
     transaction?.type === "income" ? "income" : initialType,
@@ -132,23 +143,25 @@ function TransactionForm({
         transaction_date: date,
       };
       if (transaction) {
+        if (!online) {
+          setError("Edit transaksi memerlukan koneksi internet.");
+          return;
+        }
         await updateTransaction(transaction.id, {
           ...input,
           version: transaction.version ?? 1,
           description: description.trim() || null,
         });
       } else {
-        await createTransaction({
+        const result = await createOrQueueTransaction(actorUserId, {
           ...input,
           ...(description.trim() ? { description: description.trim() } : {}),
         });
-      }
-      onSaved();
-    } catch (cause) {
-      if (import.meta.env.DEV) {
-        onSaved();
+        onSaved(result.status === "queued");
         return;
       }
+      onSaved(false);
+    } catch (cause) {
       setError(
         cause instanceof Error
           ? cause.message
@@ -314,7 +327,10 @@ function ConfirmationDialog({
     try {
       await onConfirm();
     } catch (cause) {
-      if (import.meta.env.DEV && cause instanceof TypeError) {
+      if (
+        import.meta.env.VITE_DEMO_MODE === "true" &&
+        cause instanceof TypeError
+      ) {
         onClose();
         return;
       }
@@ -368,23 +384,27 @@ function ConfirmationDialog({
 
 export function TransactionsPage({
   userId,
+  initialCategories,
   partnerId,
   hidden,
   intent,
   onIntentHandled,
   openTrash,
   onTrashHandled,
+  online,
 }: {
   userId: string;
+  initialCategories: Category[];
   partnerId?: string;
   hidden: boolean;
   intent: TransactionType | null;
   onIntentHandled: () => void;
   openTrash: boolean;
   onTrashHandled: () => void;
+  online: boolean;
 }) {
   const [items, setItems] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [total, setTotal] = useState(0);
   const [type, setType] = useState("");
   const [owner, setOwner] = useState("");
@@ -394,8 +414,11 @@ export function TransactionsPage({
   const [error, setError] = useState<string | null>(null);
   const [formType, setFormType] = useState<TransactionType | null>(intent);
   const [reload, setReload] = useState(0);
-  useAutoRefresh(() => setReload((value) => value + 1));
-  const [saved, setSaved] = useState(false);
+  useAutoRefresh(() => setReload((value) => value + 1), 10_000, online);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [snapshotAt, setSnapshotAt] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
+  const [outboxItems, setOutboxItems] = useState<TransactionOutboxItem[]>([]);
   const [view, setView] = useState<"active" | "trashed">("active");
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
@@ -419,20 +442,30 @@ export function TransactionsPage({
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    Promise.all([
-      view === "active"
-        ? getTransactions({ type, owner, category, offset }, controller.signal)
-        : getTrashedTransactions({ owner, offset }, controller.signal),
-      getCategories(controller.signal),
-    ])
-      .then(([transactions, categoryItems]) => {
-        setItems(transactions.items);
-        setTotal(transactions.total);
-        setCategories(categoryItems);
+    const resource = `transactions:${view}:${type}:${owner}:${category}:${offset}`;
+    loadWithSnapshot(userId, resource, async () => {
+      const [transactions, categoryItems] = await Promise.all([
+        view === "active"
+          ? getTransactions(
+              { type, owner, category, offset },
+              controller.signal,
+            )
+          : getTrashedTransactions({ owner, offset }, controller.signal),
+        getCategories(controller.signal),
+      ]);
+      return { transactions, categoryItems };
+    })
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setItems(result.data.transactions.items);
+        setTotal(result.data.transactions.total);
+        setCategories(result.data.categoryItems);
+        setSnapshotAt(result.syncedAt);
+        setStale(result.stale);
       })
       .catch((cause: unknown) => {
         if (controller.signal.aborted) return;
-        if (import.meta.env.DEV) {
+        if (import.meta.env.VITE_DEMO_MODE === "true") {
           void import("./demo").then(({ demoDashboard }) => {
             let demoItems = view === "active" ? demoDashboard.transactions : [];
             if (type)
@@ -447,15 +480,42 @@ export function TransactionsPage({
           });
           return;
         }
+        setStale(true);
         setError(
           cause instanceof Error
             ? cause.message
             : "Riwayat belum dapat dimuat.",
         );
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
-  }, [type, owner, category, offset, reload, view]);
+  }, [userId, type, owner, category, offset, reload, view]);
+
+  useEffect(() => {
+    let active = true;
+    const refreshOutbox = () => {
+      void getOutboxItems()
+        .then((records) => {
+          if (active)
+            setOutboxItems(
+              records.filter((item) => item.actorUserId === userId),
+            );
+        })
+        .catch(() => {
+          if (active) setOutboxItems([]);
+        });
+    };
+    refreshOutbox();
+    window.addEventListener(OUTBOX_CHANGED_EVENT, refreshOutbox);
+    window.addEventListener(TRANSACTION_SYNCED_EVENT, refreshOutbox);
+    return () => {
+      active = false;
+      window.removeEventListener(OUTBOX_CHANGED_EVENT, refreshOutbox);
+      window.removeEventListener(TRANSACTION_SYNCED_EVENT, refreshOutbox);
+    };
+  }, [userId]);
 
   function closeForm() {
     setFormType(null);
@@ -463,11 +523,15 @@ export function TransactionsPage({
     onIntentHandled();
   }
 
-  function savedTransaction() {
+  function savedTransaction(queued: boolean) {
     closeForm();
-    setSaved(true);
+    setSaved(
+      queued
+        ? "Transaksi disimpan di perangkat dan akan disinkronkan otomatis."
+        : "Perubahan transaksi berhasil disimpan.",
+    );
     setReload((value) => value + 1);
-    window.setTimeout(() => setSaved(false), 3000);
+    window.setTimeout(() => setSaved(null), 4000);
   }
 
   function changeFilter(setter: (value: string) => void, value: string) {
@@ -483,15 +547,17 @@ export function TransactionsPage({
 
   async function applyConfirmed() {
     if (!confirmation) return;
+    if (!online || stale)
+      throw new Error("Perubahan ini memerlukan koneksi internet.");
     const { kind, transaction } = confirmation;
     if (kind === "delete") await deleteTransaction(transaction.id);
     if (kind === "restore") await restoreTransaction(transaction.id);
     if (kind === "purge") await purgeTransaction(transaction.id);
     setConfirmation(null);
     setSelected(null);
-    setSaved(true);
+    setSaved("Perubahan transaksi berhasil disimpan.");
     setReload((value) => value + 1);
-    window.setTimeout(() => setSaved(false), 3000);
+    window.setTimeout(() => setSaved(null), 3000);
   }
 
   return (
@@ -523,8 +589,38 @@ export function TransactionsPage({
       </div>
       {saved && (
         <div className="success-banner" role="status">
-          Perubahan transaksi berhasil disimpan.
+          {saved}
         </div>
+      )}
+      {stale && snapshotAt && (
+        <div className="stale-note" role="status">
+          Data terakhir disinkronkan{" "}
+          {new Date(snapshotAt).toLocaleString("id-ID")}.
+        </div>
+      )}
+      {outboxItems.length > 0 && (
+        <section className="outbox-panel" aria-labelledby="outbox-title">
+          <div>
+            <p className="eyebrow">Tersimpan di perangkat</p>
+            <h2 id="outbox-title">Menunggu sinkronisasi</h2>
+          </div>
+          <ul>
+            {outboxItems.map((item) => (
+              <li key={item.idempotencyKey}>
+                <span>
+                  <b>{item.input.description || "Transaksi tanpa catatan"}</b>
+                  <small>
+                    {item.input.transaction_date} · {item.attempts} percobaan
+                  </small>
+                </span>
+                <strong>{displayMoney(item.input.amount, hidden)}</strong>
+                <em className={item.status}>
+                  {item.status === "failed" ? "Perlu diperiksa" : "Menunggu"}
+                </em>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       <div className="transaction-view-heading">
         <div>
@@ -630,7 +726,7 @@ export function TransactionsPage({
             {items.map((item) => {
               const mine = item.ownerUserId === userId;
               const saving = item.type.startsWith("saving_");
-              const mutable = mine && !saving;
+              const mutable = mine && !saving && online && !stale;
               const tone = saving ? "saving" : item.type;
               return (
                 <li key={item.id}>
@@ -743,6 +839,8 @@ export function TransactionsPage({
           }
           transaction={editing ?? undefined}
           categories={categories}
+          actorUserId={userId}
+          online={online && !stale}
           onClose={closeForm}
           onSaved={savedTransaction}
         />

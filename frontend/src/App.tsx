@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import { getDashboard } from "./api";
-import type { SummaryItem, Transaction } from "./api";
+import { AuthRequiredError } from "./api";
+import type { SummaryItem, Transaction, getDashboard } from "./api";
 import { TransactionsPage } from "./TransactionsPage";
 import { SavingsPage } from "./SavingsPage";
 import { PlansPage } from "./PlansPage";
 import { SettingsPage } from "./SettingsPage";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { useAutoRefresh } from "./useAutoRefresh";
+import { loadDashboardSnapshot } from "./offline/snapshots";
+import { useOfflineSync } from "./offline/useOfflineSync";
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>;
 type Theme = "together" | "calm" | "minimal";
@@ -250,7 +252,12 @@ export function App() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
-  useAutoRefresh(() => setReload((value) => value + 1));
+  const offline = useOfflineSync(() => setReload((value) => value + 1));
+  useAutoRefresh(() => setReload((value) => value + 1), 10_000, offline.online);
+  const [snapshotState, setSnapshotState] = useState<{
+    stale: boolean;
+    syncedAt: string | null;
+  }>({ stale: false, syncedAt: null });
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = document.documentElement.dataset.theme;
     return saved === "calm" || saved === "minimal" ? saved : "together";
@@ -270,16 +277,22 @@ export function App() {
   useEffect(() => {
     const controller = new AbortController();
     setError(null);
-    getDashboard(controller.signal)
-      .then(setData)
+    loadDashboardSnapshot(controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setData(result.data);
+        setSnapshotState({ stale: result.stale, syncedAt: result.syncedAt });
+      })
       .catch((cause: unknown) => {
         if (controller.signal.aborted) return;
-        if (import.meta.env.DEV) {
+        if (import.meta.env.VITE_DEMO_MODE === "true") {
           void import("./demo").then(({ demoDashboard }) =>
             setData(demoDashboard),
           );
           return;
         }
+        setSnapshotState((current) => ({ ...current, stale: true }));
+        if (cause instanceof AuthRequiredError) setData(null);
         setError(
           cause instanceof Error ? cause.message : "Data belum dapat dimuat.",
         );
@@ -441,9 +454,39 @@ export function App() {
           </div>
         </header>
 
+        {(!offline.online ||
+          snapshotState.stale ||
+          offline.pending > 0 ||
+          offline.failed > 0 ||
+          offline.syncError) && (
+          <div
+            className={`sync-banner ${offline.online ? "" : "is-offline"}`}
+            role="status"
+          >
+            <b>{offline.online ? "Sinkronisasi perangkat" : "Mode offline"}</b>
+            <span>
+              {offline.syncError
+                ? offline.syncError
+                : offline.failed > 0
+                  ? `${offline.failed} transaksi perlu diperiksa.`
+                  : offline.pending > 0
+                    ? `${offline.pending} transaksi menunggu sinkronisasi.`
+                    : snapshotState.syncedAt
+                      ? `Menampilkan data terakhir ${new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(snapshotState.syncedAt))}.`
+                      : "Perubahan online-only dinonaktifkan sampai koneksi kembali."}
+            </span>
+            {offline.online && (offline.pending > 0 || offline.failed > 0) && (
+              <button type="button" onClick={offline.retry}>
+                Coba sinkronkan
+              </button>
+            )}
+          </div>
+        )}
+
         {activePage === "transactions" && data ? (
           <TransactionsPage
             userId={data.user.id}
+            initialCategories={data.categories}
             partnerId={
               data.summary.byUser.find((item) => item.userId !== data.user.id)
                 ?.userId
@@ -453,6 +496,7 @@ export function App() {
             onIntentHandled={() => setTransactionIntent(null)}
             openTrash={trashIntent}
             onTrashHandled={() => setTrashIntent(false)}
+            online={offline.online && !snapshotState.stale}
           />
         ) : activePage === "savings" && data ? (
           <SavingsPage
@@ -460,12 +504,14 @@ export function App() {
             hidden={balancesHidden}
             openCreate={savingsIntent}
             onCreateHandled={() => setSavingsIntent(false)}
+            online={offline.online && !snapshotState.stale}
           />
         ) : activePage === "plans" && data ? (
           <PlansPage
             userId={data.user.id}
             allUserIds={data.summary.byUser.map((item) => item.userId)}
             hidden={balancesHidden}
+            online={offline.online && !snapshotState.stale}
           />
         ) : activePage === "settings" && data ? (
           <SettingsPage
@@ -478,6 +524,7 @@ export function App() {
               setTrashIntent(true);
               setActivePage("transactions");
             }}
+            offlineCount={offline.pending + offline.failed}
           />
         ) : activePage !== "home" ? (
           <section className="coming-page">
@@ -743,6 +790,7 @@ export function App() {
               </button>
               <button
                 type="button"
+                disabled={!offline.online || snapshotState.stale}
                 onClick={() => {
                   setSavingsIntent(true);
                   setActivePage("savings");

@@ -112,6 +112,7 @@ describe("transaction routes", () => {
         headers: {
           "Content-Type": "application/json",
           "Idempotency-Key": "offline-request-0001",
+          "X-Rangkumin-Actor-Id": "user-1",
         },
         body: JSON.stringify({
           type: "expense",
@@ -126,6 +127,33 @@ describe("transaction routes", () => {
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toMatchObject({
       transaction: { type: "expense", amount: 50000 },
+    });
+  });
+
+  it("menolak outbox ketika akun aktif berubah", async () => {
+    const { environment, testApp } = createTestApp(createDatabase([]));
+    const response = await testApp.request(
+      "/transactions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "offline-request-actor-mismatch",
+          "X-Rangkumin-Actor-Id": "user-2",
+        },
+        body: JSON.stringify({
+          type: "expense",
+          amount: 50000,
+          transaction_date: "2026-09-05",
+          category_id: "expense-default-1",
+        }),
+      },
+      environment,
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Actor Mismatch",
     });
   });
 

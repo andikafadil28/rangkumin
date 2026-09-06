@@ -98,30 +98,99 @@ export type Notification = {
   createdAt: string;
 };
 
+export type CreateTransactionInput = {
+  type: "income" | "expense";
+  amount: number;
+  category_id: string;
+  transaction_date: string;
+  description?: string;
+};
+
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: string,
   ) {
     super(message);
+    this.name = "ApiError";
   }
 }
 
-async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(path, {
-    headers: { Accept: "application/json" },
-    signal,
-  });
+export class NetworkError extends Error {
+  constructor(message = "Tidak dapat terhubung ke server.") {
+    super(message);
+    this.name = "NetworkError";
+  }
+}
+
+export class AuthRequiredError extends Error {
+  constructor() {
+    super("Sesi perlu diperbarui sebelum data dapat disinkronkan.");
+    this.name = "AuthRequiredError";
+  }
+}
+
+export class InvalidResponseError extends Error {
+  constructor() {
+    super("Server mengembalikan respons yang tidak dikenali.");
+    this.name = "InvalidResponseError";
+  }
+}
+
+export async function requestJson<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      credentials: "same-origin",
+      cache: "no-store",
+      redirect: "manual",
+      headers: {
+        Accept: "application/json",
+        ...options.headers,
+      },
+    });
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === "AbortError")
+      throw cause;
+    throw new NetworkError();
+  }
+
+  const finalUrl = new URL(response.url || path, window.location.origin);
+  if (
+    response.status === 401 ||
+    response.type === "opaqueredirect" ||
+    (response.redirected && finalUrl.origin !== window.location.origin) ||
+    finalUrl.pathname.startsWith("/cdn-cgi/access/")
+  ) {
+    throw new AuthRequiredError();
+  }
+
+  const isJson = response.headers
+    .get("content-type")
+    ?.toLowerCase()
+    .includes("application/json");
+  const body = isJson ? ((await response.json()) as unknown) : null;
+
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      message?: string;
-    } | null;
+    const payload = body as { error?: string; message?: string } | null;
     throw new ApiError(
-      body?.message ?? `Request gagal (${response.status})`,
+      payload?.message ?? `Request gagal (${response.status})`,
       response.status,
+      payload?.error,
     );
   }
-  return response.json() as Promise<T>;
+
+  if (!isJson) throw new InvalidResponseError();
+  return body as T;
+}
+
+async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+  return requestJson<T>(path, { signal });
 }
 
 export async function getTransactions(
@@ -175,32 +244,20 @@ export async function getCategories(signal?: AbortSignal) {
   return [...income.categories, ...expense.categories];
 }
 
-export async function createTransaction(input: {
-  type: "income" | "expense";
-  amount: number;
-  category_id: string;
-  transaction_date: string;
-  description?: string;
-}) {
-  const response = await fetch("/api/transactions", {
+export function createTransaction(
+  input: CreateTransactionInput,
+  idempotencyKey: string = crypto.randomUUID(),
+  expectedActorId?: string,
+) {
+  return requestJson<{ transaction: Transaction }>("/api/transactions", {
     method: "POST",
     headers: {
-      Accept: "application/json",
       "Content-Type": "application/json",
-      "Idempotency-Key": crypto.randomUUID(),
+      "Idempotency-Key": idempotencyKey,
+      ...(expectedActorId ? { "X-Rangkumin-Actor-Id": expectedActorId } : {}),
     },
     body: JSON.stringify(input),
   });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      message?: string;
-    } | null;
-    throw new ApiError(
-      body?.message ?? "Transaksi belum dapat disimpan.",
-      response.status,
-    );
-  }
-  return response.json() as Promise<{ transaction: Transaction }>;
 }
 
 export function updateTransaction(
@@ -225,10 +282,27 @@ async function sendWithoutResponse(
   path: string,
   method: "POST" | "PATCH" | "DELETE",
 ) {
-  const response = await fetch(path, {
-    method,
-    headers: { Accept: "application/json" },
-  });
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method,
+      credentials: "same-origin",
+      cache: "no-store",
+      redirect: "manual",
+      headers: { Accept: "application/json" },
+    });
+  } catch {
+    throw new NetworkError();
+  }
+  const finalUrl = new URL(response.url || path, window.location.origin);
+  if (
+    response.status === 401 ||
+    response.type === "opaqueredirect" ||
+    (response.redirected && finalUrl.origin !== window.location.origin) ||
+    finalUrl.pathname.startsWith("/cdn-cgi/access/")
+  ) {
+    throw new AuthRequiredError();
+  }
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as {
       message?: string;
@@ -277,25 +351,18 @@ async function sendJson<T>(
   body: unknown,
   options: { method?: "POST" | "PATCH"; idempotent?: boolean } = {},
 ) {
-  const response = await fetch(path, {
+  return requestJson<T>(path, {
     method: options.method ?? "POST",
     headers: {
-      Accept: "application/json",
       "Content-Type": "application/json",
       ...(options.idempotent ? { "Idempotency-Key": crypto.randomUUID() } : {}),
     },
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as {
-      message?: string;
-    } | null;
-    throw new ApiError(
-      payload?.message ?? "Perubahan belum dapat disimpan.",
-      response.status,
-    );
-  }
-  return response.json() as Promise<T>;
+}
+
+export function getIdentity(signal?: AbortSignal) {
+  return getJson<{ user: User }>("/api/me", signal);
 }
 
 export function createSavingsGoal(input: {
@@ -443,9 +510,9 @@ export function updateReminder(
 }
 
 export async function getDashboard(signal?: AbortSignal) {
-  const [identity, summary, savings, transactions, notifications] =
+  const [identity, summary, savings, transactions, notifications, categories] =
     await Promise.all([
-      getJson<{ user: User }>("/api/me", signal),
+      getIdentity(signal),
       getJson<Summary>("/api/summary", signal),
       getJson<SavingsOverview>("/api/savings/overview", signal),
       getJson<{ items: Transaction[] }>(
@@ -456,6 +523,7 @@ export async function getDashboard(signal?: AbortSignal) {
         "/api/notifications",
         signal,
       ),
+      getCategories(signal),
     ]);
   return {
     user: identity.user,
@@ -463,5 +531,6 @@ export async function getDashboard(signal?: AbortSignal) {
     savings,
     transactions: transactions.items,
     unread: notifications.notifications.filter((item) => !item.readAt).length,
+    categories,
   };
 }

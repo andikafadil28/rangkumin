@@ -16,6 +16,7 @@
     "types": [
       "@cloudflare/workers-types",
       "vite/client",
+      "vite-plugin-pwa/client",
       "./worker-configuration.d.ts"
     ]
   },

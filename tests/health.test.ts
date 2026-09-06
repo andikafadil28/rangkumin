@@ -9,6 +9,10 @@ describe("GET /api/health", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("application/json");
+    expect(response.headers.get("cache-control")).toBe(
+      "private, no-store, max-age=0",
+    );
+    expect(response.headers.get("cdn-cache-control")).toBe("no-store");
     await expect(response.json()).resolves.toMatchObject({
       status: "ok",
       service: "rangkumin",
@@ -25,6 +29,19 @@ describe("API fallback", () => {
     );
 
     expect(response.status).toBe(401);
+    expect(response.headers.get("cache-control")).toBe(
+      "private, no-store, max-age=0",
+    );
+    expect(response.headers.get("cdn-cache-control")).toBe("no-store");
+  });
+
+  it("menjalankan Worker lebih dulu untuk exact /api", async () => {
+    const response = await exports.default.fetch("https://rangkumin.test/api");
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("cache-control")).toBe(
+      "private, no-store, max-age=0",
+    );
   });
 
   it("menolak list tabungan tanpa identity", async () => {
@@ -33,6 +50,9 @@ describe("API fallback", () => {
     );
 
     expect(response.status).toBe(401);
+    expect(response.headers.get("cache-control")).toBe(
+      "private, no-store, max-age=0",
+    );
   });
 
   it("menolak endpoint protected yang tidak dikenal tanpa identity", async () => {

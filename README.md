@@ -11,7 +11,7 @@ Aplikasi keuangan pasangan berbasis web untuk mencatat pemasukan, pengeluaran, s
 - **Transaksi & kategori** — income, expense, dan mutasi tabungan (`saving_deposit`, `saving_withdrawal`, `saving_transfer`) dengan kategori default dan custom per pengguna, filter, pagination, dan Trash (restore/purge otomatis 30 hari).
 - **Tabungan** — beberapa pos pribadi dan bersama, target opsional, setor/tarik/transfer antarpos secara atomik, saldo tidak boleh negatif, dan arsip pos.
 - **Anggaran** — per kategori untuk pengguna tertentu atau bersama, berulang otomatis setiap bulan, ambang peringatan dan kanal notifikasi (dashboard/Telegram) yang bisa dikonfigurasi.
-- **Pengingat** — sekali, interval, mingguan, atau bulanan; penerima personal/bersama; aksi Telegram *Sudah Dibayar*, *Ingatkan Lagi*, dan *Catat sebagai Pengeluaran*.
+- **Pengingat** — sekali, interval, mingguan, atau bulanan; penerima personal/bersama; aksi Telegram _Sudah Dibayar_, _Ingatkan Lagi_, dan _Catat sebagai Pengeluaran_.
 - **Dashboard** — dua ringkasan individu + kartu gabungan, grafik arus income vs expense, distribusi kategori, perkembangan tabungan, dan notifikasi.
 - **Tiga suasana tampilan** — Bersama, Tenang, dan Minimal, dengan pilihan disimpan lokal di perangkat.
 - **Realtime refresh** — polling ringan tiap 10 detik (dijeda saat tab tidak aktif, langsung segar saat kembali fokus) dan refresh senyap tanpa mengganggu tampilan.

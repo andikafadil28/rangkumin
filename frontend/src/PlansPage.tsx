@@ -11,6 +11,7 @@ import {
   updateReminder,
 } from "./api";
 import type { Budget, Category, Reminder } from "./api";
+import { loadWithSnapshot } from "./offline/snapshots";
 
 type PlanForm = "budget" | "reminder";
 type PlanFormState =
@@ -278,7 +279,10 @@ function PlanDialog({
       }
       onSaved();
     } catch (cause) {
-      if (import.meta.env.DEV && cause instanceof TypeError) {
+      if (
+        import.meta.env.VITE_DEMO_MODE === "true" &&
+        cause instanceof TypeError
+      ) {
         onSaved();
         return;
       }
@@ -594,10 +598,12 @@ export function PlansPage({
   userId,
   allUserIds,
   hidden,
+  online,
 }: {
   userId: string;
   allUserIds: string[];
   hidden: boolean;
+  online: boolean;
 }) {
   const [tab, setTab] = useState<PlanForm>("budget");
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -605,29 +611,46 @@ export function PlansPage({
   const [categories, setCategories] = useState<Category[]>([]);
   const [form, setForm] = useState<PlanFormState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
-  useAutoRefresh(() => setReload((value) => value + 1));
+  useAutoRefresh(() => setReload((value) => value + 1), 10_000, online);
   const [saved, setSaved] = useState(false);
+  const [stale, setStale] = useState(false);
+  const [snapshotAt, setSnapshotAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (online && !stale) return;
+    setForm(null);
+  }, [online, stale]);
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
-    Promise.all([
-      getBudgets(controller.signal),
-      getReminders(controller.signal),
-      getCategories(controller.signal),
-    ])
-      .then(([budgetData, reminderData, categoryData]) => {
+    setError(null);
+    loadWithSnapshot(userId, "plans", async () => {
+      const [budgetData, reminderData, categoryData] = await Promise.all([
+        getBudgets(controller.signal),
+        getReminders(controller.signal),
+        getCategories(controller.signal),
+      ]);
+      return { budgetData, reminderData, categoryData };
+    })
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        const { budgetData, reminderData, categoryData } = result.data;
         setBudgets(budgetData.budgets);
         setReminders(reminderData.reminders);
         setCategories(
           categoryData.filter((category) => category.type === "expense"),
         );
+        setStale(result.stale);
+        setSnapshotAt(result.syncedAt);
+        setLoaded(true);
       })
       .catch((cause: unknown) => {
         if (controller.signal.aborted) return;
-        if (import.meta.env.DEV) {
+        if (import.meta.env.VITE_DEMO_MODE === "true") {
           setBudgets(demoBudgets);
           setReminders(demoReminders);
           setCategories([
@@ -653,17 +676,21 @@ export function PlansPage({
               isActive: true,
             },
           ]);
+          setLoaded(true);
           return;
         }
+        setStale(true);
         setError(
           cause instanceof Error
             ? cause.message
             : "Rencana belum dapat dimuat.",
         );
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
-  }, [reload]);
+  }, [reload, userId]);
 
   function didSave() {
     setForm(null);
@@ -673,6 +700,7 @@ export function PlansPage({
   }
   const list = tab === "budget" ? budgets : reminders;
   function openCreate() {
+    if (!online || stale) return;
     setForm(tab === "budget" ? { type: "budget" } : { type: "reminder" });
   }
 
@@ -684,13 +712,24 @@ export function PlansPage({
           <h1 id="plans-page-title">Rencana</h1>
           <p>Beri batas untuk hari ini dan pengingat untuk nanti.</p>
         </div>
-        <button className="quick-add" type="button" onClick={openCreate}>
+        <button
+          className="quick-add"
+          type="button"
+          disabled={!online || stale}
+          onClick={openCreate}
+        >
           + {tab === "budget" ? "Atur anggaran" : "Buat pengingat"}
         </button>
       </div>
       {saved && (
         <div className="success-banner" role="status">
           Rencana berhasil disimpan.
+        </div>
+      )}
+      {stale && snapshotAt && (
+        <div className="stale-note" role="status">
+          Mode baca saja. Snapshot diperbarui{" "}
+          {new Date(snapshotAt).toLocaleString("id-ID")}.
         </div>
       )}
       <div className="plan-tabs" role="tablist" aria-label="Jenis rencana">
@@ -709,12 +748,12 @@ export function PlansPage({
           Pengingat <span>{reminders.length}</span>
         </button>
       </div>
-      {loading ? (
+      {loading && !loaded ? (
         <div className="plan-loading">
           <i />
           <i />
         </div>
-      ) : error ? (
+      ) : error && !loaded ? (
         <div className="empty-state">
           <span>Rencana belum tersambung</span>
           <p>{error}</p>
@@ -730,14 +769,20 @@ export function PlansPage({
         <div className="empty-state">
           <span>Belum ada {tab === "budget" ? "anggaran" : "pengingat"}</span>
           <p>Mulai dengan satu rencana sederhana.</p>
-          <button className="text-button" type="button" onClick={openCreate}>
+          <button
+            className="text-button"
+            type="button"
+            disabled={!online || stale}
+            onClick={openCreate}
+          >
             Buat sekarang
           </button>
         </div>
       ) : tab === "budget" ? (
         <div className="budget-list">
           {budgets.map((budget) => {
-            const editable = budget.createdByUserId === userId;
+            const editable =
+              online && !stale && budget.createdByUserId === userId;
             const capped = Math.min(100, budget.percentage);
             return (
               <article
@@ -846,7 +891,7 @@ export function PlansPage({
                   {reminder.notifyTelegram ? "Telegram" : ""}
                 </small>
               </div>
-              {reminder.creatorUserId === userId ? (
+              {online && !stale && reminder.creatorUserId === userId ? (
                 <button
                   className="plan-manage"
                   type="button"

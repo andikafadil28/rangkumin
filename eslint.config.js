@@ -9,6 +9,7 @@ export default tseslint.config(
       "dist*/**",
       "node_modules/**",
       "public/assets/**",
+      "public/sw.js",
       ".wrangler/**",
       "worker-configuration.d.ts",
     ],
@@ -16,7 +17,13 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
+    files: [
+      "src/**/*.ts",
+      "tests/**/*.ts",
+      "frontend-tests/**/*.ts",
+      "vitest.config.ts",
+      "vitest.frontend.config.ts",
+    ],
     languageOptions: {
       globals: globals.serviceworker,
     },
@@ -37,7 +44,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["public/**/*.js"],
+    files: ["public/**/*.js", "frontend/public/**/*.js"],
     languageOptions: {
       globals: globals.browser,
     },

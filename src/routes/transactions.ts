@@ -49,8 +49,19 @@ transactionRoutes.post("/", async (context) => {
     const idempotencyKey = idempotencyKeySchema.parse(
       context.req.header("Idempotency-Key"),
     );
+    const currentUser = context.get("currentUser");
+    const expectedActorId = context.req.header("X-Rangkumin-Actor-Id");
+    if (expectedActorId && expectedActorId !== currentUser.id) {
+      return context.json(
+        {
+          error: "Actor Mismatch",
+          message: "Akun aktif tidak sesuai dengan pemilik transaksi offline.",
+        },
+        409,
+      );
+    }
     const result = await createTransaction(context.env.DB, {
-      ownerUserId: context.get("currentUser").id,
+      ownerUserId: currentUser.id,
       type: body.type,
       amount: body.amount,
       transactionDate: body.transaction_date,

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { MiddlewareHandler } from "hono";
 import { identityMiddleware } from "./middleware/identity";
 import { budgetRoutes } from "./routes/budgets";
 import { categoryRoutes } from "./routes/categories";
@@ -19,6 +20,15 @@ import type { AppEnv } from "./types";
 import { getCurrentMonthRange } from "./utils/date";
 
 export const app = new Hono<AppEnv>();
+
+const disableApiCaching: MiddlewareHandler<AppEnv> = async (context, next) => {
+  await next();
+  context.header("Cache-Control", "private, no-store, max-age=0");
+  context.header("CDN-Cache-Control", "no-store");
+};
+
+app.use("/api", disableApiCaching);
+app.use("/api/*", disableApiCaching);
 
 app.get("/api/health", (context) => {
   return context.json({

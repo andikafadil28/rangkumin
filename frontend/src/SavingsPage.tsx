@@ -10,6 +10,7 @@ import {
   updateSavingsGoal,
 } from "./api";
 import type { SavingsGoal, SavingsOverview } from "./api";
+import { loadWithSnapshot } from "./offline/snapshots";
 
 type Operation =
   | { kind: "create" }
@@ -126,7 +127,10 @@ function SavingsForm({
       }
       onSaved();
     } catch (cause) {
-      if (import.meta.env.DEV && cause instanceof TypeError) {
+      if (
+        import.meta.env.VITE_DEMO_MODE === "true" &&
+        cause instanceof TypeError
+      ) {
         onSaved();
         return;
       }
@@ -352,7 +356,10 @@ function ArchiveGoalDialog({
       await setSavingsGoalArchived(goal.id, !goal.archivedAt);
       onArchived();
     } catch (cause) {
-      if (import.meta.env.DEV && cause instanceof TypeError) {
+      if (
+        import.meta.env.VITE_DEMO_MODE === "true" &&
+        cause instanceof TypeError
+      ) {
         onArchived();
         return;
       }
@@ -416,11 +423,13 @@ export function SavingsPage({
   hidden,
   openCreate,
   onCreateHandled,
+  online,
 }: {
   userId: string;
   hidden: boolean;
   openCreate: boolean;
   onCreateHandled: () => void;
+  online: boolean;
 }) {
   const [overview, setOverview] = useState<SavingsOverview | null>(null);
   const [operation, setOperation] = useState<Operation | null>(
@@ -429,8 +438,10 @@ export function SavingsPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
-  useAutoRefresh(() => setReload((value) => value + 1));
+  useAutoRefresh(() => setReload((value) => value + 1), 10_000, online);
   const [saved, setSaved] = useState(false);
+  const [stale, setStale] = useState(false);
+  const [snapshotAt, setSnapshotAt] = useState<string | null>(null);
   const [archiveGoal, setArchiveGoal] = useState<SavingsGoal | null>(null);
   const [view, setView] = useState<"active" | "archived">("active");
 
@@ -439,27 +450,44 @@ export function SavingsPage({
   }, [openCreate]);
 
   useEffect(() => {
+    if (online && !stale) return;
+    setOperation(null);
+    setArchiveGoal(null);
+  }, [online, stale]);
+
+  useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
-    getSavingsOverview(controller.signal)
-      .then(setOverview)
+    setError(null);
+    loadWithSnapshot(userId, "savings", () =>
+      getSavingsOverview(controller.signal),
+    )
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setOverview(result.data);
+        setStale(result.stale);
+        setSnapshotAt(result.syncedAt);
+      })
       .catch((cause: unknown) => {
         if (controller.signal.aborted) return;
-        if (import.meta.env.DEV) {
+        if (import.meta.env.VITE_DEMO_MODE === "true") {
           void import("./demo").then(({ demoDashboard }) =>
             setOverview(demoDashboard.savings),
           );
           return;
         }
+        setStale(true);
         setError(
           cause instanceof Error
             ? cause.message
             : "Tabungan belum dapat dimuat.",
         );
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
-  }, [reload]);
+  }, [reload, userId]);
 
   function canMutate(goal: SavingsGoal) {
     return goal.ownershipScope === "shared" || goal.ownerUserId === userId;
@@ -504,7 +532,12 @@ export function SavingsPage({
           <button
             className="secondary-button"
             type="button"
-            disabled={view === "archived" || accessibleGoals.length < 2}
+            disabled={
+              !online ||
+              stale ||
+              view === "archived" ||
+              accessibleGoals.length < 2
+            }
             onClick={() => setOperation({ kind: "transfer" })}
           >
             Pindahkan
@@ -524,6 +557,7 @@ export function SavingsPage({
             <button
               className="quick-add"
               type="button"
+              disabled={!online || stale}
               onClick={() => setOperation({ kind: "create" })}
             >
               + Buat pos
@@ -534,6 +568,12 @@ export function SavingsPage({
       {saved && (
         <div className="success-banner" role="status">
           Perubahan tabungan berhasil disimpan.
+        </div>
+      )}
+      {stale && snapshotAt && (
+        <div className="stale-note" role="status">
+          Mode baca saja. Snapshot diperbarui{" "}
+          {new Date(snapshotAt).toLocaleString("id-ID")}.
         </div>
       )}
       <section className="savings-hero">
@@ -565,13 +605,13 @@ export function SavingsPage({
           </small>
         </div>
       </section>
-      {loading ? (
+      {loading && !overview ? (
         <div className="savings-loading">
           <i />
           <i />
           <i />
         </div>
-      ) : error ? (
+      ) : error && !overview ? (
         <div className="empty-state">
           <span>Tabungan belum tersambung</span>
           <p>{error}</p>
@@ -586,8 +626,8 @@ export function SavingsPage({
       ) : goals.length ? (
         <div className="savings-grid">
           {goals.map((goal, index) => {
-            const mutable = canMutate(goal);
-            const editable = canEdit(goal);
+            const mutable = online && !stale && canMutate(goal);
+            const editable = online && !stale && canEdit(goal);
             return (
               <article
                 className={`saving-goal tone-${index % 3}`}
@@ -674,6 +714,7 @@ export function SavingsPage({
             <button
               className="quick-add"
               type="button"
+              disabled={!online || stale}
               onClick={() => setOperation({ kind: "create" })}
             >
               Buat pos pertama

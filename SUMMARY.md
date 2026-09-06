@@ -13,7 +13,19 @@
 
 # CURRENT
 
-**Phase 1 sampai Phase 7 selesai dan terverifikasi. UI Phase 7 di-commit & di-push pada 6 September 2026 (`8fbf603` feat, `a9003c4` docs), lalu di-deploy ke production sebagai Worker version `dcd52d2a-599d-402b-80c3-d3c58509599b`.**
+**Phase 1 sampai Phase 8 implementasi selesai dan terverifikasi lokal (64 Worker test + 15 frontend test, lint/typecheck/format/build hijau). Production menjalankan versi logout dari Phase 7 (Worker version `255a9141-0f60-4bfb-bd09-0d74af3508f2`) setelah Google login tanpa OTP diaktifkan; Phase 8 PWA/offline belum di-deploy.**
+
+Yang sudah tersedia di Phase 8 (working tree):
+
+- Transport API baru `requestJson` (`credentials:"same-origin"`, `cache:"no-store"`, `redirect:"manual"`) dengan error class `NetworkError`/`AuthRequiredError`/`InvalidResponseError`/`ApiError(code)`; deteksi sesi Cloudflare Access (401/`opaqueredirect`/path `/cdn-cgi/access/`). Backend mematikan caching di `/api` & `/api/*` (middleware + `wrangler.jsonc` `run_worker_first`).
+- IndexedDB `rangkumin-offline` (idb v8): snapshot per user (dashboard + daftar per halaman) dan transaction outbox dengan idempotency key. Snapshot hanya fallback saat `NetworkError` (stale read-only + info waktu sinkron terakhir); penulisan IndexedDB best-effort saat online.
+- Create transaksi selalu outbox-first (offline & online) dengan `X-Rangkumin-Actor-Id`; server validasi actor → 409 `Actor Mismatch`; outbox milik akun lain tidak dikuras. Edit/hapus/Trash/tabungan/rencana online-only; banner sinkron + panel outbox di halaman Transaksi.
+- Service worker vite-plugin-pwa injectManifest hanya men-cache app shell (bypass `/api` & `/cdn-cgi/access`); manifest PWA dan ikon PNG digenerate dari SVG via `scripts/generate-pwa-icons.mjs` (sharp `^0.35.2`); `registerSW({ immediate: true })` di `main.tsx`.
+- Bootstrap tema dipindah ke `frontend/public/theme-bootstrap.js` (tanpa inline script); security headers/CSP via `_headers` (`script-src 'self'`, style inline untuk progress/chart, `no-referrer`, `nosniff`, `frame-ancestors 'none'`, Permissions-Policy minimal).
+- Login Google tanpa OTP: IdP Google (project `Rangkumin Access`, PKCE ON) sebagai satu-satunya login method, Instant Auth aktif, policy Allow → Emails kedua user. Tombol logout di Pengaturan (`clearOfflineDataSafely()` lalu `/cdn-cgi/access/logout`).
+- Test: Worker 64 (termasuk `no-store` dan actor mismatch) + frontend 15 (api, db, outbox, pwaRoutes, snapshots) memakai fake-indexeddb; typecheck/lint/format/build hijau; `npm audit` 0 vulnerability.
+
+Fokus berikutnya: **smoke test dua pengguna di production** (User Dua pending), deploy Phase 8, lalu Phase 9 - Telegram.
 
 Yang sudah tersedia:
 
@@ -43,9 +55,7 @@ Yang sudah tersedia:
 - Migration Phase 6 sudah diterapkan ke D1 development dan production; Worker production version `9a04866c-5325-47bd-9b9a-4fe346492588` aktif dengan dua scheduled trigger.
 - Smoke test publik lulus: health `200`, route aplikasi/protected API dijaga Cloudflare Access, dan tabel Phase 6 tersedia di D1 production.
 
-Smoke test protected user pertama lulus untuk budget, reminder actions, notification inbox, dan idempotent expense; seluruh fixture sudah dibersihkan. Ownership lintas user menunggu session user kedua.
-
-Fokus berikutnya: **smoke test UI dengan sesi dua pengguna** lalu **Phase 8 - PWA dan Offline**.
+Sebelum Phase 8, smoke test publik lulus: health `200`, route aplikasi/protected API dijaga Cloudflare Access, dan tabel tersedia di D1 production; smoke test protected user pertama lulus, ownership lintas user menunggu session user kedua.
 
 Yang diselesaikan di Phase 7:
 
@@ -61,9 +71,9 @@ Yang diselesaikan di Phase 7:
 - `README.md` ditambahkan; LICENSE, SECURITY.md, CONTRIBUTING.md, dan CI masih menunggu (Phase 12).
 - Verifikasi akhir: lint, typecheck, 62 test, build Vite + Wrangler dry-run lulus; repository di-push ke `origin/main` tanpa email asli/secret.
 
-Deploy production terverifikasi: tidak ada migration tertunda, lint/typecheck/62 test/build lulus, `/api/health` merespons 200, serta root dan protected API tanpa sesi merespons 302 ke Cloudflare Access.
+Deploy Phase 7 terverifikasi: tidak ada migration tertunda, gate lulus, `/api/health` merespons 200, serta root dan protected API tanpa sesi merespons 302 ke Cloudflare Access. Setelah login Google tanpa OTP aktif, deploy ulang versi logout (Worker `255a9141-0f60-4bfb-bd09-0d74af3508f2`) tetap lulus health dan arah ke Access.
 
-Residual: audit accessibility mendalam (focus trap keyboard, kontras) dan frontend E2E test belum ada; smoke test UI dengan sesi dua user di production belum dilakukan.
+Residual setelah Phase 8: smoke test dua user di production (User Dua belum), uji installability/offline reload di perangkat nyata, audit accessibility mendalam (focus trap keyboard, kontras) dan frontend E2E test.
 
 # DECISIONS
 
@@ -76,6 +86,9 @@ Residual: audit accessibility mendalam (focus trap keyboard, kontras) dan fronte
 - Tabungan memiliki beberapa pos, target opsional, setoran, penarikan, dan transfer.
 - Anggaran berulang bulanan, reset tiap bulan, dengan custom warning threshold.
 - PWA dapat melihat snapshot terakhir dan membuat transaksi saat offline, lalu sync otomatis.
+- Offline mode: snapshot per user di IndexedDB `rangkumin-offline` hanya fallback saat `NetworkError`; create transaksi outbox-first dengan idempotency key + `X-Rangkumin-Actor-Id`; edit/hapus/Trash/tabungan/rencana online-only dan read-only saat stale.
+- Transport API selalu `same-origin` + `no-store` + `manual redirect`; sesi Cloudflare Access yang kedaluwarsa dideteksi sebagai `AuthRequiredError`, bukan fallback snapshot.
+- Login Google tanpa OTP (IdP Google, PKCE, Instant Auth) satu-satunya login method; logot via `/cdn-cgi/access/logout` setelah membersihkan data offline.
 - UI minimalis untuk pasangan dan responsive; tema Bersama/Tenang/Minimal (token CSS) disimpan lokal di `rangkumin-theme`, default Bersama. Light/dark otomatis mengikuti perangkat belum diterapkan (keputusan terbuka).
 - Realtime refresh memakai polling 10 detik + refresh saat focus/visibilitychange + silent refresh (data lama tetap tampil saat refresh).
 - Default currency IDR dan timezone Asia/Jakarta.

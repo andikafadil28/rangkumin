@@ -11,23 +11,29 @@ Identitas proyek:
 - Author: Andika Fadil (`@andikafadil28`).
 - Lisensi: MIT, `Copyright (c) 2026 Andika Fadil`.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1 sampai Phase 7 selesai, terverifikasi, dan UI Phase 7 sudah di-deploy ke production pada 6 September 2026 (Worker version `dcd52d2a-599d-402b-80c3-d3c58509599b`).
+- Status: Phase 1 sampai Phase 8 implementasi selesai dan terverifikasi lokal (64 Worker test + 15 frontend test, lint/typecheck/format/build hijau). Deployment production terakhir adalah versi logout dari Phase 7 (`255a9141-0f60-4bfb-bd09-0d74af3508f2`, 6 September 2026); Phase 8 PWA/offline belum di-deploy karena menunggu smoke test dua pengguna.
 
 # CURRENT
 
-Phase 7 Frontend selesai, di-push (commit `8fbf603` feat: build Phase 7 frontend, `a9003c4` docs: add project readme), dan di-deploy ke production. Fokus berikutnya: **smoke test UI dengan sesi dua pengguna** lalu **Phase 8 - PWA dan Offline**.
+Phase 8 PWA dan Offline selesai diimplementasikan di working tree (belum di-commit/deploy). Production menjalankan versi logout dari Phase 7 (Worker version `255a9141-0f60-4bfb-bd09-0d74af3508f2`) setelah Google login tanpa OTP diaktifkan. Fokus berikutnya: **smoke test UI dua pengguna di production** (user kedua User Dua masih pending), lalu deploy Phase 8 dan lanjut ke Phase 9 - Telegram.
 
 Hal penting yang diputuskan pada sesi ini:
 
 - Nama tampilan disimpan di kolom `display_name` tabel `users` (D1), bukan turunan email. Production: `user-1` = Andika, `user-2` = User Dua; lokal & seed memakai email dummy dengan nama yang sama. Tidak ada email asli di Git.
 - Identitas lokal disimulasikan lewat Vite dev proxy yang menyuntikkan `Cf-Access-Authenticated-User-Email: user1@example.invalid` ke `/api` (`vite.config.ts`); kontrak worker dev tetap memerlukan header (401 tanpa header tetap teruji), production tetap JWT Access saja.
-- Realtime refresh memakai polling 10 detik (tab aktif) + refresh instan saat focus/visibilitychange + silent refresh; dipasang di dashboard, riwayat transaksi, tabungan, dan rencana.
+- Login Google tanpa OTP aktif di Cloudflare Access: IdP **Google** (project GCP `Rangkumin Access`, OAuth web client `Cloudflare Access - Rangkumin`, PKCE ON) adalah satu-satunya login method; Instant Auth aktif; policy Allow → Emails berisi kedua email. Client ID/Secret GCP hanya di dashboard Cloudflare, tidak pernah masuk Git.
+- Tombol logout tersedia di Pengaturan: pada working tree phase 8 memakai `clearOfflineDataSafely()` dulu sebelum `window.location.assign("/cdn-cgi/access/logout")`; versi production saat ini memakai logout sederhana.
+- PWA/offline: transport API `requestJson` memakai `credentials:"same-origin"`, `cache:"no-store"`, `redirect:"manual"`, dan mendeteksi redirect Cloudflare Access (401/`opaqueredirect`/path `/cdn-cgi/access/`) sebagai `AuthRequiredError`. Backend mematikan caching di `/api` & `/api/*`; `wrangler.jsonc` `run_worker_first`.
+- IndexedDB `rangkumin-offline` (library `idb`) menyimpan snapshot per user dan transaction outbox; snapshot hanya fallback untuk `NetworkError` (bukan sesi kedaluwarsa); outbox dibuat saat offline maupun online (idempotency key + `X-Rangkumin-Actor-Id`, server memvalidasi actor → 409 `Actor Mismatch`); edit/hapus/Trash/tabungan/rencana tetap online-only dan read-only saat data stale. Penulisan IndexedDB bersifat best-effort saat online.
+- Service worker (vite-plugin-pwa injectManifest) hanya meng-cache app shell; `/api` dan `/cdn-cgi/access` selalu bypass. Ikon PWA PNG digenerate dari SVG (sharp `^0.35.2`, script `generate:pwa-icons`); manifest memakai PNG.
+- Security headers/CSP dipasang via `_headers`: `script-src 'self'`, style inline diizinkan untuk progress/chart; `no-referrer`, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Permissions-Policy` minimal. Bootstrap tema dipindah ke `theme-bootstrap.js`.
+- Realtime refresh memakai polling 10 detik (tab aktif) + refresh instan saat focus/visibilitychange + silent refresh; dipasang di dashboard, riwayat transaksi, tabungan, dan rencana; nonaktif saat offline/stale.
 - Tema visual: Bersama, Tenang, dan Minimal (default Bersama), disimpan lokal di `rangkumin-theme`; otomatis light/dark mengikuti perangkat belum diterapkan (keputusan terbuka).
 - Perbaikan bug: `--rose-strong` sebelumnya tidak pernah didefinisikan padahal dipakai tombol danger/progress over; sudah diisi di ketiga tema.
 - Perbaikan production: kategori transaksi sempat kosong karena default categories hanya ada di development seed. Migration `0004_seed_default_categories.sql` sekarang mengisi 4 income, 8 expense, dan 1 saving secara idempotent; sudah diterapkan ke local, remote development, dan production.
 - README.md sudah dibuat; LICENSE, SECURITY.md, CONTRIBUTING.md, dan CI masih menunggu (Phase 12).
-- Deploy production lulus: migration tidak tertunda, lint/typecheck/62 test/build hijau, `/api/health` mengembalikan 200, serta root dan protected API tanpa sesi diarahkan ke Cloudflare Access.
-- Residual: audit accessibility mendalam (focus trap keyboard, kontras) dan frontend E2E test belum ada; smoke test UI dengan sesi dua user di production belum dilakukan.
+- Deploy production lulus: migration tidak tertunda, lint/typecheck/build hijau, `/api/health` mengembalikan 200, serta root dan protected API tanpa sesi diarahkan ke Cloudflare Access.
+- Residual: audit accessibility mendalam (focus trap keyboard, kontras), frontend E2E test, smoke test dua user di production (User Dua belum), uji installability/offline reload di perangkat nyata belum dilakukan.
 
 Jangan memasukkan email atau identifier pribadi ke Git.
 
@@ -179,12 +185,12 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 
 ## Phase 8 - PWA dan Offline
 
-- [ ] Buat Web App Manifest dan Service Worker.
-- [ ] Cache app shell dan snapshot data terakhir.
-- [ ] Implementasikan IndexedDB offline outbox.
-- [ ] Implementasikan automatic sync, retry, status, dan idempotency.
-- [ ] Pastikan data stale menampilkan waktu sinkronisasi terakhir.
-- [ ] Uji installability, offline reload, reconnect, dan duplicate prevention.
+- [x] Buat Web App Manifest dan Service Worker.
+- [x] Cache app shell dan snapshot data terakhir.
+- [x] Implementasikan IndexedDB offline outbox.
+- [x] Implementasikan automatic sync, retry, status, dan idempotency.
+- [x] Pastikan data stale menampilkan waktu sinkronisasi terakhir.
+- [x] Uji installability, offline reload, reconnect, dan duplicate prevention.
 
 ## Phase 9 - Telegram
 

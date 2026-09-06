@@ -96,4 +96,27 @@ export const demoDashboard: Awaited<ReturnType<typeof getDashboard>> = {
     },
   ],
   unread: 2,
+  categories: [
+    {
+      id: "income-salary",
+      type: "income",
+      name: "Gaji",
+      isDefault: true,
+      isActive: true,
+    },
+    {
+      id: "expense-food",
+      type: "expense",
+      name: "Makanan & Minuman",
+      isDefault: true,
+      isActive: true,
+    },
+    {
+      id: "expense-shopping",
+      type: "expense",
+      name: "Belanja",
+      isDefault: true,
+      isActive: true,
+    },
+  ],
 };
