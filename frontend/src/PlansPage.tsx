@@ -12,6 +12,8 @@ import {
 } from "./api";
 import type { Budget, Category, Reminder } from "./api";
 import { loadWithSnapshot } from "./offline/snapshots";
+import { partitionBudgets, partitionReminders } from "./viewMode";
+import type { ViewMode } from "./viewMode";
 
 type PlanForm = "budget" | "reminder";
 type PlanFormState =
@@ -597,11 +599,13 @@ function PlanDialog({
 export function PlansPage({
   userId,
   allUserIds,
+  viewMode,
   hidden,
   online,
 }: {
   userId: string;
   allUserIds: string[];
+  viewMode: ViewMode;
   hidden: boolean;
   online: boolean;
 }) {
@@ -698,7 +702,9 @@ export function PlansPage({
     setReload((value) => value + 1);
     window.setTimeout(() => setSaved(false), 3000);
   }
-  const list = tab === "budget" ? budgets : reminders;
+  const visibleBudgets = partitionBudgets(budgets, userId, viewMode);
+  const visibleReminders = partitionReminders(reminders, userId, viewMode);
+  const list = tab === "budget" ? visibleBudgets : visibleReminders;
   function openCreate() {
     if (!online || stale) return;
     setForm(tab === "budget" ? { type: "budget" } : { type: "reminder" });
@@ -738,14 +744,14 @@ export function PlansPage({
           aria-selected={tab === "budget"}
           onClick={() => setTab("budget")}
         >
-          Anggaran <span>{budgets.length}</span>
+          Anggaran <span>{visibleBudgets.length}</span>
         </button>
         <button
           role="tab"
           aria-selected={tab === "reminder"}
           onClick={() => setTab("reminder")}
         >
-          Pengingat <span>{reminders.length}</span>
+          Pengingat <span>{visibleReminders.length}</span>
         </button>
       </div>
       {loading && !loaded ? (
@@ -780,7 +786,7 @@ export function PlansPage({
         </div>
       ) : tab === "budget" ? (
         <div className="budget-list">
-          {budgets.map((budget) => {
+          {visibleBudgets.map((budget) => {
             const editable =
               online && !stale && budget.createdByUserId === userId;
             const capped = Math.min(100, budget.percentage);
@@ -845,7 +851,7 @@ export function PlansPage({
         </div>
       ) : (
         <div className="reminder-list">
-          {reminders.map((reminder) => (
+          {visibleReminders.map((reminder) => (
             <article
               className={`reminder-card ${reminder.isActive ? "" : "inactive"}`}
               key={reminder.id}

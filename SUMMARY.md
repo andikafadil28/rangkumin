@@ -13,9 +13,9 @@
 
 # CURRENT
 
-**Phase 1 sampai Phase 8 implementasi selesai dan terverifikasi lokal (64 Worker test + 15 frontend test, lint/typecheck/format/build hijau). Production menjalankan versi logout dari Phase 7 (Worker version `255a9141-0f60-4bfb-bd09-0d74af3508f2`) setelah Google login tanpa OTP diaktifkan; Phase 8 PWA/offline belum di-deploy.**
+**Phase 1 sampai Phase 8 selesai dan sudah di-deploy ke production (Worker version `a73f9ca2-85b5-45ed-bc28-77226c6c1b6e`, commit `c976748`; 64 Worker test + 25 frontend test, lint/typecheck/format/build hijau).** Fitur baru **view mode "Tampilan Bersama ↔ Tampilan Saya"** selesai di working tree (belum di-commit/deploy): presentasi-only per perangkat, default Bersama, backend tidak berubah.
 
-Yang sudah tersedia di Phase 8 (working tree):
+Yang sudah tersedia di Phase 8 (production):
 
 - Transport API baru `requestJson` (`credentials:"same-origin"`, `cache:"no-store"`, `redirect:"manual"`) dengan error class `NetworkError`/`AuthRequiredError`/`InvalidResponseError`/`ApiError(code)`; deteksi sesi Cloudflare Access (401/`opaqueredirect`/path `/cdn-cgi/access/`). Backend mematikan caching di `/api` & `/api/*` (middleware + `wrangler.jsonc` `run_worker_first`).
 - IndexedDB `rangkumin-offline` (idb v8): snapshot per user (dashboard + daftar per halaman) dan transaction outbox dengan idempotency key. Snapshot hanya fallback saat `NetworkError` (stale read-only + info waktu sinkron terakhir); penulisan IndexedDB best-effort saat online.
@@ -23,9 +23,16 @@ Yang sudah tersedia di Phase 8 (working tree):
 - Service worker vite-plugin-pwa injectManifest hanya men-cache app shell (bypass `/api` & `/cdn-cgi/access`); manifest PWA dan ikon PNG digenerate dari SVG via `scripts/generate-pwa-icons.mjs` (sharp `^0.35.2`); `registerSW({ immediate: true })` di `main.tsx`.
 - Bootstrap tema dipindah ke `frontend/public/theme-bootstrap.js` (tanpa inline script); security headers/CSP via `_headers` (`script-src 'self'`, style inline untuk progress/chart, `no-referrer`, `nosniff`, `frame-ancestors 'none'`, Permissions-Policy minimal).
 - Login Google tanpa OTP: IdP Google (project `Rangkumin Access`, PKCE ON) sebagai satu-satunya login method, Instant Auth aktif, policy Allow → Emails kedua user. Tombol logout di Pengaturan (`clearOfflineDataSafely()` lalu `/cdn-cgi/access/logout`).
-- Test: Worker 64 (termasuk `no-store` dan actor mismatch) + frontend 15 (api, db, outbox, pwaRoutes, snapshots) memakai fake-indexeddb; typecheck/lint/format/build hijau; `npm audit` 0 vulnerability.
+- Test: Worker 64 (termasuk `no-store` dan actor mismatch) + frontend 25 (api, db, outbox, pwaRoutes, snapshots, viewMode) memakai fake-indexeddb; typecheck/lint/format/build hijau; `npm audit` 0 vulnerability.
 
-Fokus berikutnya: **smoke test dua pengguna di production** (User Dua pending), deploy Phase 8, lalu Phase 9 - Telegram.
+Fokus berikutnya: **smoke test dua pengguna di production** (User Dua pending), lalu Phase 9 - Telegram.
+
+View mode (working tree, belum di-deploy):
+
+- Toggle "Tampilan Bersama ↔ Tampilan Saya" (key lokal `rangkumin-view`, `couple`|`solo`, default `couple`); kontrol di Pengaturan (`SettingsPage`) + segmented control di dashboard (`App.tsx`); hanya menyembunyikan data pasangan dari perangkat itu, bukan keamanan.
+- `getDashboard` refactor identitas-dulu; saat solo kirim `?owner=<id>` ke `/api/summary` sehingga `byUser`=[pemilik] dan `combined.categories` punya sendiri. Tidak ada perubahan backend.
+- Solo: kartu gabungan jadi "Langkahmu/Totalku", kartu pasangan hilang, riwayat & Trash terkunci "Milikmu", tabungan & rencana dipartisi via `frontend/src/viewMode.ts` (`partitionGoals`/`partitionBudgets`/`partitionReminders`; pos shared tetap tampil); aktivitas dashboard difilter client-side.
+- Test baru `frontend-tests/viewMode.test.ts` (10 case: default/persist/nilai asing + partition goals/budgets/reminders).
 
 Yang sudah tersedia:
 

@@ -9,6 +9,8 @@ import { NotificationsPanel } from "./NotificationsPanel";
 import { useAutoRefresh } from "./useAutoRefresh";
 import { loadDashboardSnapshot } from "./offline/snapshots";
 import { useOfflineSync } from "./offline/useOfflineSync";
+import { partitionGoals, setViewMode, getViewMode } from "./viewMode";
+import type { ViewMode } from "./viewMode";
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>;
 type Theme = "together" | "calm" | "minimal";
@@ -265,6 +267,7 @@ export function App() {
   const [balancesHidden, setBalancesHidden] = useState(
     () => localStorage.getItem("rangkumin-hide-balances") === "true",
   );
+  const [viewMode, setViewModeState] = useState<ViewMode>(() => getViewMode());
   const [quickOpen, setQuickOpen] = useState(false);
   const [activePage, setActivePage] = useState<Page>("home");
   const [transactionIntent, setTransactionIntent] = useState<
@@ -277,7 +280,7 @@ export function App() {
   useEffect(() => {
     const controller = new AbortController();
     setError(null);
-    loadDashboardSnapshot(controller.signal)
+    loadDashboardSnapshot(controller.signal, viewMode === "solo")
       .then((result) => {
         if (controller.signal.aborted) return;
         setData(result.data);
@@ -298,7 +301,7 @@ export function App() {
         );
       });
     return () => controller.abort();
-  }, [reload]);
+  }, [reload, viewMode]);
 
   useEffect(() => {
     if (!quickOpen) return;
@@ -324,6 +327,11 @@ export function App() {
     const next = !balancesHidden;
     localStorage.setItem("rangkumin-hide-balances", String(next));
     setBalancesHidden(next);
+  }
+
+  function changeViewMode(next: ViewMode) {
+    setViewMode(next);
+    setViewModeState(next);
   }
 
   return (
@@ -491,6 +499,7 @@ export function App() {
               data.summary.byUser.find((item) => item.userId !== data.user.id)
                 ?.userId
             }
+            viewMode={viewMode}
             hidden={balancesHidden}
             intent={transactionIntent}
             onIntentHandled={() => setTransactionIntent(null)}
@@ -501,6 +510,7 @@ export function App() {
         ) : activePage === "savings" && data ? (
           <SavingsPage
             userId={data.user.id}
+            viewMode={viewMode}
             hidden={balancesHidden}
             openCreate={savingsIntent}
             onCreateHandled={() => setSavingsIntent(false)}
@@ -510,6 +520,7 @@ export function App() {
           <PlansPage
             userId={data.user.id}
             allUserIds={data.summary.byUser.map((item) => item.userId)}
+            viewMode={viewMode}
             hidden={balancesHidden}
             online={offline.online && !snapshotState.stale}
           />
@@ -518,6 +529,8 @@ export function App() {
             displayName={data.user.displayName}
             theme={theme}
             balancesHidden={balancesHidden}
+            viewMode={viewMode}
+            onViewModeChange={changeViewMode}
             onThemeChange={selectTheme}
             onBalanceToggle={toggleBalances}
             onOpenTrash={() => {
@@ -559,11 +572,35 @@ export function App() {
           )
         ) : (
           <div className="dashboard">
+            <div
+              className="view-switch"
+              role="group"
+              aria-label="Pilih cakupan data"
+            >
+              <button
+                type="button"
+                aria-pressed={viewMode === "couple"}
+                onClick={() => changeViewMode("couple")}
+              >
+                Tampilan bersama
+              </button>
+              <button
+                type="button"
+                aria-pressed={viewMode === "solo"}
+                onClick={() => changeViewMode("solo")}
+              >
+                Tampilan saya
+              </button>
+            </div>
             <section className="section-block" aria-labelledby="personal-title">
               <div className="section-heading">
                 <div>
                   <p className="eyebrow">Bulan ini</p>
-                  <h2 id="personal-title">Cerita masing-masing</h2>
+                  <h2 id="personal-title">
+                    {viewMode === "solo"
+                      ? "Ceritamu bulan ini"
+                      : "Cerita masing-masing"}
+                  </h2>
                 </div>
                 <span className="period-chip">
                   {formatPeriod(data.summary.period.from)}
@@ -588,13 +625,21 @@ export function App() {
 
             <section className="together-card" aria-labelledby="together-title">
               <div>
-                <p className="eyebrow light">Kalau digabung</p>
-                <h2 id="together-title">Langkah kalian bulan ini</h2>
+                <p className="eyebrow light">
+                  {viewMode === "solo" ? "Untukmu" : "Kalau digabung"}
+                </p>
+                <h2 id="together-title">
+                  {viewMode === "solo"
+                    ? "Langkahmu bulan ini"
+                    : "Langkah kalian bulan ini"}
+                </h2>
                 <p className="together-net">
                   {formatMoney(data.summary.combined.net, balancesHidden)}
                 </p>
                 <span className="together-caption">
-                  Selisih pemasukan dan pengeluaran bersama
+                  {viewMode === "solo"
+                    ? "Selisih pemasukan dan pengeluaranmu"
+                    : "Selisih pemasukan dan pengeluaran bersama"}
                 </span>
               </div>
               <div className="together-stats">
@@ -629,7 +674,9 @@ export function App() {
               <section className="panel" aria-labelledby="saving-title">
                 <div className="panel-head">
                   <div>
-                    <p className="eyebrow">Tujuan bersama</p>
+                    <p className="eyebrow">
+                      {viewMode === "solo" ? "Tujuanmu" : "Tujuan bersama"}
+                    </p>
                     <h2 id="saving-title">Tabungan</h2>
                   </div>
                   <button
@@ -640,11 +687,17 @@ export function App() {
                     Lihat semua <Icon name="arrow" />
                   </button>
                 </div>
-                {data.savings.goals.filter((goal) => !goal.archivedAt)
-                  .length ? (
+                {partitionGoals(
+                  data.savings.goals.filter((goal) => !goal.archivedAt),
+                  data.user.id,
+                  viewMode,
+                ).length ? (
                   <ul className="goal-list">
-                    {data.savings.goals
-                      .filter((goal) => !goal.archivedAt)
+                    {partitionGoals(
+                      data.savings.goals.filter((goal) => !goal.archivedAt),
+                      data.user.id,
+                      viewMode,
+                    )
                       .slice(0, 3)
                       .map((goal) => (
                         <li key={goal.id}>
@@ -681,7 +734,11 @@ export function App() {
                 ) : (
                   <div className="empty-state">
                     <span>Belum ada tujuan</span>
-                    <p>Mulai dari sesuatu yang ingin kalian capai bersama.</p>
+                    <p>
+                      {viewMode === "solo"
+                        ? "Mulai dari sesuatu yang ingin kamu capai."
+                        : "Mulai dari sesuatu yang ingin kalian capai bersama."}
+                    </p>
                   </div>
                 )}
               </section>
@@ -703,16 +760,25 @@ export function App() {
                     Riwayat <Icon name="arrow" />
                   </button>
                 </div>
-                {data.transactions.length ? (
+                {data.transactions.some(
+                  (item) =>
+                    viewMode !== "solo" || item.ownerUserId === data.user.id,
+                ) ? (
                   <ul className="transaction-list">
-                    {data.transactions.map((item) => (
-                      <TransactionRow
-                        key={item.id}
-                        item={item}
-                        currentUserId={data.user.id}
-                        hidden={balancesHidden}
-                      />
-                    ))}
+                    {data.transactions
+                      .filter(
+                        (item) =>
+                          viewMode !== "solo" ||
+                          item.ownerUserId === data.user.id,
+                      )
+                      .map((item) => (
+                        <TransactionRow
+                          key={item.id}
+                          item={item}
+                          currentUserId={data.user.id}
+                          hidden={balancesHidden}
+                        />
+                      ))}
                   </ul>
                 ) : (
                   <div className="empty-state">

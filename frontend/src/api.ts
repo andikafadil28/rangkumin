@@ -509,11 +509,14 @@ export function updateReminder(
   );
 }
 
-export async function getDashboard(signal?: AbortSignal) {
-  const [identity, summary, savings, transactions, notifications, categories] =
+export async function getDashboard(signal?: AbortSignal, solo = false) {
+  const identity = await getIdentity(signal);
+  const summaryUrl = solo
+    ? `/api/summary?owner=${encodeURIComponent(identity.user.id)}`
+    : "/api/summary";
+  const [summary, savings, transactions, notifications, categories] =
     await Promise.all([
-      getIdentity(signal),
-      getJson<Summary>("/api/summary", signal),
+      getJson<Summary>(summaryUrl, signal),
       getJson<SavingsOverview>("/api/savings/overview", signal),
       getJson<{ items: Transaction[] }>(
         "/api/transactions?status=active&limit=5&offset=0",

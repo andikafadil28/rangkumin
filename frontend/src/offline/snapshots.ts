@@ -16,9 +16,12 @@ function rethrowAbort(cause: unknown) {
   if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
 }
 
-export async function loadDashboardSnapshot(signal?: AbortSignal) {
+export async function loadDashboardSnapshot(
+  signal?: AbortSignal,
+  solo = false,
+) {
   try {
-    const data = await getDashboard(signal);
+    const data = await getDashboard(signal, solo);
     const syncedAt = new Date().toISOString();
     try {
       await rememberActiveUser(data.user.id);

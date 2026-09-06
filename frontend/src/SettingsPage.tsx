@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { clearOfflineDataSafely } from "./offline/sync";
+import type { ViewMode } from "./viewMode";
 
 type Theme = "together" | "calm" | "minimal";
 
@@ -7,6 +8,8 @@ export function SettingsPage({
   displayName,
   theme,
   balancesHidden,
+  viewMode,
+  onViewModeChange,
   onThemeChange,
   onBalanceToggle,
   onOpenTrash,
@@ -15,6 +18,8 @@ export function SettingsPage({
   displayName: string;
   theme: Theme;
   balancesHidden: boolean;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
   onThemeChange: (theme: Theme) => void;
   onBalanceToggle: () => void;
   onOpenTrash: () => void;
@@ -121,6 +126,37 @@ export function SettingsPage({
                 <b>Minimal</b>
                 <small>Lugas dan fokus</small>
               </span>
+            </button>
+          </div>
+        </section>
+        <section className="settings-card">
+          <div className="setting-copy">
+            <h2>Tampilan keuangan</h2>
+            <p>
+              Pilih menampilkan data berdua atau hanya punyamu. Tidak mengubah
+              data apa pun dan hanya berlaku di perangkat ini.
+            </p>
+          </div>
+          <div
+            className="view-picker"
+            role="group"
+            aria-label="Cakupan tampilan"
+          >
+            <button
+              type="button"
+              aria-pressed={viewMode === "couple"}
+              onClick={() => onViewModeChange("couple")}
+            >
+              <b>Tampilan bersama</b>
+              <small>Semua data dan pos berdua</small>
+            </button>
+            <button
+              type="button"
+              aria-pressed={viewMode === "solo"}
+              onClick={() => onViewModeChange("solo")}
+            >
+              <b>Tampilan saya</b>
+              <small>Hanya data dan pos milikmu</small>
             </button>
           </div>
         </section>

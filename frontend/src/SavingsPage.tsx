@@ -11,6 +11,8 @@ import {
 } from "./api";
 import type { SavingsGoal, SavingsOverview } from "./api";
 import { loadWithSnapshot } from "./offline/snapshots";
+import { partitionGoals } from "./viewMode";
+import type { ViewMode } from "./viewMode";
 
 type Operation =
   | { kind: "create" }
@@ -420,12 +422,14 @@ function ArchiveGoalDialog({
 
 export function SavingsPage({
   userId,
+  viewMode,
   hidden,
   openCreate,
   onCreateHandled,
   online,
 }: {
   userId: string;
+  viewMode: ViewMode;
   hidden: boolean;
   openCreate: boolean;
   onCreateHandled: () => void;
@@ -511,8 +515,16 @@ export function SavingsPage({
     window.setTimeout(() => setSaved(false), 3000);
   }
 
-  const activeGoals = overview?.goals.filter((goal) => !goal.archivedAt) ?? [];
-  const archivedGoals = overview?.goals.filter((goal) => goal.archivedAt) ?? [];
+  const activeGoals = partitionGoals(
+    overview?.goals.filter((goal) => !goal.archivedAt) ?? [],
+    userId,
+    viewMode,
+  );
+  const archivedGoals = partitionGoals(
+    overview?.goals.filter((goal) => goal.archivedAt) ?? [],
+    userId,
+    viewMode,
+  );
   const goals = view === "active" ? activeGoals : archivedGoals;
   const accessibleGoals = goals.filter(canMutate);
   const total = activeGoals.reduce((sum, goal) => sum + goal.balance, 0);
@@ -594,7 +606,7 @@ export function SavingsPage({
           </small>
         </div>
         <div>
-          <span>Pos personal</span>
+          <span>Pos personal{viewMode === "solo" ? "mu" : ""}</span>
           <b>{displayMoney(total - shared, hidden)}</b>
           <small>
             {

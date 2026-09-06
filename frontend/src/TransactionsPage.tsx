@@ -19,6 +19,7 @@ import {
   TRANSACTION_SYNCED_EVENT,
   createOrQueueTransaction,
 } from "./offline/sync";
+import type { ViewMode } from "./viewMode";
 
 const money = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -386,6 +387,7 @@ export function TransactionsPage({
   userId,
   initialCategories,
   partnerId,
+  viewMode,
   hidden,
   intent,
   onIntentHandled,
@@ -396,6 +398,7 @@ export function TransactionsPage({
   userId: string;
   initialCategories: Category[];
   partnerId?: string;
+  viewMode: ViewMode;
   hidden: boolean;
   intent: TransactionType | null;
   onIntentHandled: () => void;
@@ -407,7 +410,7 @@ export function TransactionsPage({
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [total, setTotal] = useState(0);
   const [type, setType] = useState("");
-  const [owner, setOwner] = useState("");
+  const [owner, setOwner] = useState(() => (viewMode === "solo" ? userId : ""));
   const [category, setCategory] = useState("");
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -430,6 +433,13 @@ export function TransactionsPage({
   useEffect(() => {
     if (intent) setFormType(intent);
   }, [intent]);
+
+  useEffect(() => {
+    if (viewMode === "solo" && owner !== userId) {
+      setOwner(userId);
+      setOffset(0);
+    }
+  }, [viewMode, userId, owner]);
 
   useEffect(() => {
     if (!openTrash) return;
@@ -666,14 +676,20 @@ export function TransactionsPage({
         )}
         <label>
           <span>Pemilik</span>
-          <select
-            value={owner}
-            onChange={(event) => changeFilter(setOwner, event.target.value)}
-          >
-            <option value="">Semua</option>
-            <option value={userId}>Milikmu</option>
-            {partnerId && <option value={partnerId}>Pasangan</option>}
-          </select>
+          {viewMode === "solo" ? (
+            <select value={userId} disabled>
+              <option value={userId}>Milikmu</option>
+            </select>
+          ) : (
+            <select
+              value={owner}
+              onChange={(event) => changeFilter(setOwner, event.target.value)}
+            >
+              <option value="">Semua</option>
+              <option value={userId}>Milikmu</option>
+              {partnerId && <option value={partnerId}>Pasangan</option>}
+            </select>
+          )}
         </label>
         {view === "active" && (
           <label>

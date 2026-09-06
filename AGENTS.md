@@ -11,18 +11,18 @@ Identitas proyek:
 - Author: Andika Fadil (`@andikafadil28`).
 - Lisensi: MIT, `Copyright (c) 2026 Andika Fadil`.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1 sampai Phase 8 implementasi selesai dan terverifikasi lokal (64 Worker test + 15 frontend test, lint/typecheck/format/build hijau). Deployment production terakhir adalah versi logout dari Phase 7 (`255a9141-0f60-4bfb-bd09-0d74af3508f2`, 6 September 2026); Phase 8 PWA/offline belum di-deploy karena menunggu smoke test dua pengguna.
+- Status: Phase 1 sampai Phase 8 implementasi selesai dan terverifikasi lokal (64 Worker test + 25 frontend test, lint/typecheck/format/build hijau) serta sudah di-deploy. Deployment production terakhir adalah Phase 8 PWA/offline (`a73f9ca2-85b5-45ed-bc28-77226c6c1b6e`, commit `c976748`, 6 September 2026). Fitur tampilan "Bersama/Saya" (view mode) selesai di working tree, belum di-commit/deploy.
 
 # CURRENT
 
-Phase 8 PWA dan Offline selesai diimplementasikan di working tree (belum di-commit/deploy). Production menjalankan versi logout dari Phase 7 (Worker version `255a9141-0f60-4bfb-bd09-0d74af3508f2`) setelah Google login tanpa OTP diaktifkan. Fokus berikutnya: **smoke test UI dua pengguna di production** (user kedua User Dua masih pending), lalu deploy Phase 8 dan lanjut ke Phase 9 - Telegram.
+Phase 8 PWA dan Offline sudah di-deploy ke production (Worker version `a73f9ca2-85b5-45ed-bc28-77226c6c1b6e`, commit `c976748`). Fitur baru **view mode "Tampilan Bersama ↔ Tampilan Saya"** selesai diimplementasikan di working tree (belum di-commit/deploy): presentasi-only, per perangkat, default Bersama. Fokus berikutnya: **smoke test UI dua pengguna di production** (user kedua User Dua masih pending), lalu lanjut ke Phase 9 - Telegram.
 
 Hal penting yang diputuskan pada sesi ini:
 
 - Nama tampilan disimpan di kolom `display_name` tabel `users` (D1), bukan turunan email. Production: `user-1` = Andika, `user-2` = User Dua; lokal & seed memakai email dummy dengan nama yang sama. Tidak ada email asli di Git.
 - Identitas lokal disimulasikan lewat Vite dev proxy yang menyuntikkan `Cf-Access-Authenticated-User-Email: user1@example.invalid` ke `/api` (`vite.config.ts`); kontrak worker dev tetap memerlukan header (401 tanpa header tetap teruji), production tetap JWT Access saja.
 - Login Google tanpa OTP aktif di Cloudflare Access: IdP **Google** (project GCP `Rangkumin Access`, OAuth web client `Cloudflare Access - Rangkumin`, PKCE ON) adalah satu-satunya login method; Instant Auth aktif; policy Allow → Emails berisi kedua email. Client ID/Secret GCP hanya di dashboard Cloudflare, tidak pernah masuk Git.
-- Tombol logout tersedia di Pengaturan: pada working tree phase 8 memakai `clearOfflineDataSafely()` dulu sebelum `window.location.assign("/cdn-cgi/access/logout")`; versi production saat ini memakai logout sederhana.
+- Tombol logout tersedia di Pengaturan: memakai `clearOfflineDataSafely()` dulu sebelum `window.location.assign("/cdn-cgi/access/logout")`; sudah menjadi bagian dari production Phase 8.
 - PWA/offline: transport API `requestJson` memakai `credentials:"same-origin"`, `cache:"no-store"`, `redirect:"manual"`, dan mendeteksi redirect Cloudflare Access (401/`opaqueredirect`/path `/cdn-cgi/access/`) sebagai `AuthRequiredError`. Backend mematikan caching di `/api` & `/api/*`; `wrangler.jsonc` `run_worker_first`.
 - IndexedDB `rangkumin-offline` (library `idb`) menyimpan snapshot per user dan transaction outbox; snapshot hanya fallback untuk `NetworkError` (bukan sesi kedaluwarsa); outbox dibuat saat offline maupun online (idempotency key + `X-Rangkumin-Actor-Id`, server memvalidasi actor → 409 `Actor Mismatch`); edit/hapus/Trash/tabungan/rencana tetap online-only dan read-only saat data stale. Penulisan IndexedDB bersifat best-effort saat online.
 - Service worker (vite-plugin-pwa injectManifest) hanya meng-cache app shell; `/api` dan `/cdn-cgi/access` selalu bypass. Ikon PWA PNG digenerate dari SVG (sharp `^0.35.2`, script `generate:pwa-icons`); manifest memakai PNG.
@@ -32,7 +32,8 @@ Hal penting yang diputuskan pada sesi ini:
 - Perbaikan bug: `--rose-strong` sebelumnya tidak pernah didefinisikan padahal dipakai tombol danger/progress over; sudah diisi di ketiga tema.
 - Perbaikan production: kategori transaksi sempat kosong karena default categories hanya ada di development seed. Migration `0004_seed_default_categories.sql` sekarang mengisi 4 income, 8 expense, dan 1 saving secara idempotent; sudah diterapkan ke local, remote development, dan production.
 - README.md sudah dibuat; LICENSE, SECURITY.md, CONTRIBUTING.md, dan CI masih menunggu (Phase 12).
-- Deploy production lulus: migration tidak tertunda, lint/typecheck/build hijau, `/api/health` mengembalikan 200, serta root dan protected API tanpa sesi diarahkan ke Cloudflare Access.
+- Deploy production lulus: migration tidak tertunda, lint/typecheck/build hijau, `/api/health` mengembalikan 200, serta root dan protected API tanpa sesi diarahkan ke Cloudflare Access. Version aktif `a73f9ca2-85b5-45ed-bc28-77226c6c1b6e`.
+- View mode: toggle "Tampilan Bersama ↔ Tampilan Saya" (lokal `rangkumin-view`, nilai `couple`|`solo`, default `couple`, presentation-only per perangkat — bukan keamanan). Solo: kartu pasangan disembunyikan, kartu gabungan jadi "Totalku", distribusi kategori milik sendiri, riwayat/Trash terkunci ke milik sendiri, tabungan & rencana dipartisi (pos shared tetap tampil), kontrol di Pengaturan + segmented control di dashboard. Backend tidak berubah: `/api/summary?owner=` sudah mendukung; `/api/savings/overview` & `/api/budgets`/`/api/reminders` difilter client-side via `frontend/src/viewMode.ts`. `getDashboard` refactor identitas-dulu lalu kirim `owner` saat solo.
 - Residual: audit accessibility mendalam (focus trap keyboard, kontras), frontend E2E test, smoke test dua user di production (User Dua belum), uji installability/offline reload di perangkat nyata belum dilakukan.
 
 Jangan memasukkan email atau identifier pribadi ke Git.
