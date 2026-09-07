@@ -106,7 +106,7 @@ public/               Static build served by the Worker
 ## Status and roadmap
 
 - Phases 1–9 and Phase 11 are complete; Phase 10 Google Sheets is deferred.
-- Phase 12 focuses on documentation, open-source readiness, CI, and security auditing.
+- Phase 12 documentation, open-source readiness, CI, and security auditing are complete.
 - Production residuals: two-user smoke testing, physical-device Web Push, PWA/offline reload, in-depth accessibility, and frontend E2E.
 - Future update candidates: Google Sheets reporting/mirror and Telegram integration as optional add-ons. No timeline is promised.
 

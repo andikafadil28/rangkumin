@@ -13,9 +13,9 @@
 
 # CURRENT
 
-**Phase 1–9 dan 11 selesai; Phase 10 Google Sheets ditunda; Phase 12 sedang berjalan.** Telegram runtime dihapus dan hanya menjadi kandidat add-on future update. Import/Export, Scan Struk, Web Push, dan notifikasi transaksi income/expense sudah di-deploy ke production.
+**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Telegram runtime dihapus dan hanya menjadi kandidat add-on future update. Import/Export, Scan Struk, Web Push, dan notifikasi transaksi income/expense sudah di-deploy ke production.
 
-Terverifikasi lokal: **106 Worker test + 43 frontend test = 149**, lint/typecheck/format/build hijau.
+Terverifikasi lokal dan CI: **106 Worker test + 43 frontend test = 149**, lint/typecheck/format/build/secret scan hijau.
 
 Fitur yang sudah ada di production:
 

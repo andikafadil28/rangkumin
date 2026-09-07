@@ -106,7 +106,7 @@ public/               Static build yang dilayani Worker
 ## Status dan roadmap
 
 - Phase 1–9 dan Phase 11 selesai; Phase 10 Google Sheets ditunda.
-- Phase 12 berfokus pada dokumentasi, open-source readiness, CI, dan audit security.
+- Phase 12 dokumentasi, open-source readiness, CI, dan audit security sudah selesai.
 - Residual production: smoke test dua user, Web Push perangkat nyata, PWA/offline reload, accessibility mendalam, dan frontend E2E.
 - Kandidat future update: Google Sheets reporting/mirror dan Telegram integration sebagai add-on opsional. Tidak ada timeline yang dijanjikan.
 

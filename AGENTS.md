@@ -11,11 +11,11 @@ Identitas proyek:
 - Author: Andika Fadil (`@andikafadil28`).
 - Lisensi: core MIT, `Copyright (c) 2026 Andika Fadil`; layanan dan add-on komersial dapat memakai perjanjian terpisah.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1–9 dan 11 selesai; Phase 10 Google Sheets ditunda sebagai future update; Phase 12 sedang berjalan. Telegram runtime dihapus dan hanya menjadi kandidat add-on opsional. Terverifikasi lokal: 106 Worker test + 43 frontend test (149), lint/typecheck/format/build hijau, dan fitur aktif sudah di-deploy ke production.
+- Status: Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda sebagai future update. Telegram runtime dihapus dan hanya menjadi kandidat add-on opsional. Terverifikasi lokal dan CI: 106 Worker test + 43 frontend test (149), lint/typecheck/format/build/secret scan hijau, dan fitur aktif sudah di-deploy ke production.
 
 # CURRENT
 
-Sesi ini: **Phase 12 Open Source dan CI**, mencakup hardening repo publik, legal/community files, GitHub Actions, dokumentasi setup lokal + Cloudflare dalam Bahasa Indonesia dan English, serta PDF terpisah untuk kedua bahasa.
+Sesi ini: **Phase 12 Open Source dan CI selesai**, mencakup hardening repo publik, legal/community files, GitHub Actions, dokumentasi setup lokal + Cloudflare dalam Bahasa Indonesia dan English, serta PDF terpisah untuk kedua bahasa.
 
 Keputusan dan hal penting:
 
@@ -210,7 +210,7 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 - [x] Tambahkan GitHub Actions untuk lint, typecheck, test, build, dan secret scanning.
 - [x] Tambahkan issue/PR templates, Dependabot, dan environment examples tanpa credential nyata.
 - [x] Pastikan fixture/demo baru memakai data dummy; identifier lama pada current branch disanitasi.
-- [ ] Selesaikan audit dependency, secrets, generated files, dan repository history sebagai post-public review.
+- [x] Selesaikan audit dependency, secrets, generated files, dan repository history sebagai post-public review.
 
 ## Phase 13 - Production Deployment
 
