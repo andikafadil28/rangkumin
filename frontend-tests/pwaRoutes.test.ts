@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { shouldHandleNavigation } from "../frontend/src/offline/pwaRoutes";
+import {
+  fetchNavigation,
+  shouldHandleNavigation,
+} from "../frontend/src/offline/pwaRoutes";
 
 describe("service worker route policy", () => {
   it("hanya menangani navigasi app shell same-origin", () => {
@@ -40,5 +43,35 @@ describe("service worker route policy", () => {
     expect(
       shouldHandleNavigation(`${origin}/cdn-cgi/access`, origin, "navigate"),
     ).toBe(false);
+  });
+
+  it("mengutamakan response terbaru dari network", async () => {
+    const latest = new Response("versi-baru");
+    const cached = new Response("versi-lama");
+
+    const response = await fetchNavigation(
+      async () => latest,
+      async () => cached,
+    );
+
+    expect(await response.text()).toBe("versi-baru");
+  });
+
+  it("memakai app shell hanya saat network gagal", async () => {
+    const response = await fetchNavigation(
+      async () => Promise.reject(new Error("offline")),
+      async () => new Response("offline-shell"),
+    );
+
+    expect(await response.text()).toBe("offline-shell");
+  });
+
+  it("mengembalikan 503 saat offline sebelum shell pernah tersimpan", async () => {
+    const response = await fetchNavigation(
+      async () => Promise.reject(new Error("offline")),
+      async () => undefined,
+    );
+
+    expect(response.status).toBe(503);
   });
 });

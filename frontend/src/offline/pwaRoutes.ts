@@ -15,3 +15,20 @@ export function shouldHandleNavigation(
     !isAccess
   );
 }
+
+export async function fetchNavigation(
+  fetchLatest: () => Promise<Response>,
+  getCachedShell: () => Promise<Response | undefined>,
+) {
+  try {
+    return await fetchLatest();
+  } catch {
+    return (
+      (await getCachedShell()) ??
+      new Response("Rangkumin belum pernah dibuka online di perangkat ini.", {
+        status: 503,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      })
+    );
+  }
+}

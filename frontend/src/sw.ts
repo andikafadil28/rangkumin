@@ -6,7 +6,8 @@ import {
   matchPrecache,
   precacheAndRoute,
 } from "workbox-precaching";
-import { shouldHandleNavigation } from "./offline/pwaRoutes";
+import { registerRoute } from "workbox-routing";
+import { fetchNavigation, shouldHandleNavigation } from "./offline/pwaRoutes";
 import { parsePushPayload, safeNotificationUrl } from "./webPush";
 
 declare const self: ServiceWorkerGlobalScope & {
@@ -16,32 +17,19 @@ declare const self: ServiceWorkerGlobalScope & {
 self.skipWaiting();
 clientsClaim();
 cleanupOutdatedCaches();
+
+// Daftarkan lebih dulu agar navigasi tidak diambil dari precache index lama.
+registerRoute(
+  ({ request, url }) =>
+    shouldHandleNavigation(url.href, self.location.origin, request.mode),
+  ({ request }) =>
+    fetchNavigation(
+      () => fetch(request),
+      () => matchPrecache("/index.html"),
+    ),
+);
+
 precacheAndRoute(self.__WB_MANIFEST);
-
-self.addEventListener("fetch", (event) => {
-  // API dan Cloudflare Access selalu melewati network dan tidak masuk cache.
-  if (
-    !shouldHandleNavigation(
-      event.request.url,
-      self.location.origin,
-      event.request.mode,
-    )
-  )
-    return;
-
-  event.respondWith(
-    fetch(event.request).catch(async () => {
-      const shell = await matchPrecache("/index.html");
-      return (
-        shell ??
-        new Response("Rangkumin belum pernah dibuka online di perangkat ini.", {
-          status: 503,
-          headers: { "Content-Type": "text/plain; charset=utf-8" },
-        })
-      );
-    }),
-  );
-});
 
 self.addEventListener("push", (event) => {
   let value: unknown;

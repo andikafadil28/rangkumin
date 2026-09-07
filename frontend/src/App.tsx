@@ -256,6 +256,7 @@ function DashboardCharts({
 export function App() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [authRequired, setAuthRequired] = useState(false);
   const [reload, setReload] = useState(0);
   const offline = useOfflineSync(() => setReload((value) => value + 1));
   useAutoRefresh(() => setReload((value) => value + 1), 10_000, offline.online);
@@ -283,6 +284,7 @@ export function App() {
   useEffect(() => {
     const controller = new AbortController();
     setError(null);
+    setAuthRequired(false);
     loadDashboardSnapshot(controller.signal, viewMode === "solo")
       .then((result) => {
         if (controller.signal.aborted) return;
@@ -298,7 +300,10 @@ export function App() {
           return;
         }
         setSnapshotState((current) => ({ ...current, stale: true }));
-        if (cause instanceof AuthRequiredError) setData(null);
+        if (cause instanceof AuthRequiredError) {
+          setData(null);
+          setAuthRequired(true);
+        }
         setError(
           cause instanceof Error ? cause.message : "Data belum dapat dimuat.",
         );
@@ -609,9 +614,15 @@ export function App() {
               <p>{error}</p>
               <button
                 type="button"
-                onClick={() => setReload((value) => value + 1)}
+                onClick={() => {
+                  if (authRequired) {
+                    window.location.reload();
+                    return;
+                  }
+                  setReload((value) => value + 1);
+                }}
               >
-                Muat ulang
+                {authRequired ? "Perbarui sesi" : "Muat ulang"}
               </button>
             </section>
           ) : (
