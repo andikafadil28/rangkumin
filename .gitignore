@@ -11,6 +11,30 @@ coverage/
 
 config/*.local.json
 
+# Credential dan private key lokal.
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+.npmrc
+service-account*.json
+credentials*.json
+secrets*.json
+
+# Database dan export finansial lokal.
+*.db
+*.sqlite
+*.sqlite3
+*.csv
+*.tsv
+*.xls
+*.xlsx
+*.bak
+*.backup
+!tests/fixtures/**
+
 *.log
 .DS_Store
 Thumbs.db

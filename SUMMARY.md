@@ -4,7 +4,7 @@
 
 # PROJECT
 
-**Rangkumin** adalah aplikasi keuangan pasangan berbasis web/PWA, open-source (MIT), berjalan serverless di Cloudflare Workers + Static Assets + D1.
+**Rangkumin** adalah aplikasi keuangan pasangan berbasis web/PWA. Core open-source (MIT), layanan setup/support komersial terpisah, berjalan serverless di Cloudflare Workers + Static Assets + D1.
 
 - Production: `https://rangkumin.dikadevit.my.id`.
 - Repository: `https://github.com/andikafadil28/rangkumin`.
@@ -13,9 +13,9 @@
 
 # CURRENT
 
-**Phase 1–11 selesai.** Telegram Bot **dibatalkan dan runtime-nya dihapus**, digantikan **Scan Struk (Workers AI)** + **Web Push notifikasi**. Import/Export (Phase 11), Scan Struk, Web Push, dan notifikasi transaksi income/expense sudah di-deploy ke production.
+**Phase 1–9 dan 11 selesai; Phase 10 Google Sheets ditunda; Phase 12 sedang berjalan.** Telegram runtime dihapus dan hanya menjadi kandidat add-on future update. Import/Export, Scan Struk, Web Push, dan notifikasi transaksi income/expense sudah di-deploy ke production.
 
-Terverifikasi lokal: **103 Worker test + 43 frontend test = 146**, lint/typecheck/format/build hijau.
+Terverifikasi lokal: **106 Worker test + 43 frontend test = 149**, lint/typecheck/format/build hijau.
 
 Fitur yang sudah ada di production:
 
@@ -28,14 +28,15 @@ Fitur yang sudah ada di production:
 - **Tabungan/anggaran/pengingat**: pos pribadi/bersama + transfer atomik; budget bulanan + custom threshold; reminder sekali/interval/harian/mingguan/bulanan dengan snooze & complete.
 - Auth: Cloudflare Access (JWT diverifikasi) untuk dua pengguna; semua mutation guarded ownership.
 
-Smoke: health 200, protected API → 302 Access, Scan Struk sukses di production. Belum di-smoke-test: Web Push perangkat nyata, dua pengguna (User Dua), installability/offline reload, E2E frontend, audit accessibility mendalam.
+Smoke: health 200, protected API → 302 Access, Scan Struk sukses di production. Belum di-smoke-test: Web Push perangkat nyata, user kedua, installability/offline reload, E2E frontend, audit accessibility mendalam.
 
 # DECISIONS
 
-- D1 = source of truth; Google Sheets hanya laporan/mirror (Phase 10 masih TODO).
+- D1 = source of truth; Google Sheets hanya kandidat future update opsional tanpa timeline.
 - Login dua pengguna via Cloudflare Access; production hanya percaya JWT Access terverifikasi.
-- **Telegram dibatalkan**: kanal notifikasi dashboard + Web Push; channel `notify_telegram` & migration history dipertahankan sebagai kompatibilitas historis.
-- Scan Struk hasilnya draft (konfirmasi manual); foto tidak disimpan di storage mana pun; model berbayar unit-based (neurons dicabut).
+- **Telegram tidak aktif**: kanal aktif Dashboard + Web Push; channel `notify_telegram` dan migration history dipertahankan sebagai kompatibilitas, sedangkan integrasi baru hanya roadmap opsional.
+- Migration `0008_disable_telegram_channel.sql` menormalkan preference Telegram historis ke Web Push dan mencegah notification dead record; sudah diterapkan lokal, remote menunggu approval.
+- Scan Struk hasilnya draft (konfirmasi manual); foto tidak disimpan di storage mana pun; pricing/quota Workers AI wajib dicek dari dokumentasi resmi terbaru.
 - Web Push delivery terpisah dari koneksi klien; fan-out reminder/budget memakai `Promise.allSettled` agar tidak memblok schedule.
 - PWA: offline snapshot + outbox untuk create transaksi; edit/hapus/Trash/tabungan/rencana online-only.
 - Default currency IDR (integer), timezone Asia/Jakarta; Trash purged otomatis 30 hari.

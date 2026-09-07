@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/andikafadil28/rangkumin/security/advisories/new
+    about: Laporkan kerentanan secara privat melalui GitHub Security Advisories.
+  - name: Commercial services
+    url: https://github.com/andikafadil28
+    about: Hubungi maintainer untuk setup, support, customisasi, atau paket komersial.

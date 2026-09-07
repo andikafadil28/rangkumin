@@ -8,13 +8,10 @@ const monthSchema = z
 const thresholdSchema = z
   .object({
     percentage: z.number().int().min(1).max(100),
-    notify_web: z.boolean().default(true),
-    notify_telegram: z.boolean().default(false),
+    notify_web: z.literal(true).default(true),
+    notify_telegram: z.literal(false).default(false),
   })
-  .strict()
-  .refine((value) => value.notify_web || value.notify_telegram, {
-    message: "Minimal satu notification channel wajib aktif.",
-  });
+  .strict();
 
 const budgetFields = {
   ownership_scope: z.enum(["personal", "shared"]),

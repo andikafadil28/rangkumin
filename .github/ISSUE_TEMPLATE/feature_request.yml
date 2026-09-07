@@ -1,0 +1,28 @@
+name: Feature request
+description: Usulkan fitur atau perbaikan produk.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Masalah yang ingin diselesaikan
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solusi yang diusulkan
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatif dan trade-off
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privasi
+      options:
+        - label: Usulan ini tidak memuat identifier atau data finansial nyata.
+          required: true

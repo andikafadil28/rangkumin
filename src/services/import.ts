@@ -113,7 +113,11 @@ const thresholdSchema = z.string().transform((value, context) => {
         });
         return null;
       }
-      return { percentage, notify_web: web, notify_telegram: telegram };
+      return {
+        percentage,
+        notify_web: web || telegram,
+        notify_telegram: false,
+      };
     });
   if (
     !entries.length ||
@@ -254,7 +258,12 @@ const schemas: Record<
           code: "custom",
           message: "Minimal satu channel notifikasi wajib aktif.",
         });
-    }),
+    })
+    .transform((row) => ({
+      ...row,
+      notify_web: row.notify_web || row.notify_telegram,
+      notify_telegram: false,
+    })),
 };
 
 const importColumns: Record<ImportExportDomain, readonly string[]> = {

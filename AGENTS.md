@@ -2,34 +2,34 @@
 
 ## Rangkumin
 
-Rangkumin adalah aplikasi keuangan pasangan berbasis web untuk mencatat pemasukan, pengeluaran, saldo, tabungan, anggaran, dan pengingat. Aplikasi akan bersifat open-source dan berjalan secara serverless tanpa hosting berbayar.
+Rangkumin adalah aplikasi keuangan pasangan berbasis web untuk mencatat pemasukan, pengeluaran, saldo, tabungan, anggaran, dan pengingat. Core aplikasi bersifat open-source (MIT), dengan layanan setup/support komersial terpisah, dan berjalan secara serverless di Cloudflare.
 
 Identitas proyek:
 
 - Production: `https://rangkumin.dikadevit.my.id`.
 - Repository: `https://github.com/andikafadil28/rangkumin`.
 - Author: Andika Fadil (`@andikafadil28`).
-- Lisensi: MIT, `Copyright (c) 2026 Andika Fadil`.
+- Lisensi: core MIT, `Copyright (c) 2026 Andika Fadil`; layanan dan add-on komersial dapat memakai perjanjian terpisah.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1–11 selesai; Telegram Bot **dibatalkan dan dihapus** digantikan **Scan Struk (Workers AI)** + **Web Push notifikasi**. Terverifikasi lokal: 103 Worker test + 43 frontend test (146), lint/typecheck/format/build hijau, dan sudah di-deploy ke production. Membawa Phase 11 Import/Export, Scan Struk, Web Push, notifikasi transaksi, dan penghapusan runtime Telegram.
+- Status: Phase 1–9 dan 11 selesai; Phase 10 Google Sheets ditunda sebagai future update; Phase 12 sedang berjalan. Telegram runtime dihapus dan hanya menjadi kandidat add-on opsional. Terverifikasi lokal: 106 Worker test + 43 frontend test (149), lint/typecheck/format/build hijau, dan fitur aktif sudah di-deploy ke production.
 
 # CURRENT
 
-Sesi ini: **hapus runtime Telegram Bot**, implementasi **Scan Struk (Workers AI)**, **Web Push notifikasi**, dan **notifikasi transaksi income/expense**, lalu deploy. Import/Export Phase 11 juga selesai dan ikut di-deploy. Semua terverifikasi (146 test) dan dipakai di production.
+Sesi ini: **Phase 12 Open Source dan CI**, mencakup hardening repo publik, legal/community files, GitHub Actions, dokumentasi setup lokal + Cloudflare dalam Bahasa Indonesia dan English, serta PDF terpisah untuk kedua bahasa.
 
 Keputusan dan hal penting:
 
-- **Telegram dibatalkan.** Runtime bot (routes/services/test/scripts) dihapus total; migration history, kolom, dan channel `notify_telegram` dipertahankan sebagai kompatibilitas historis. Kanal notifikasi aktif: Dashboard + Web Push. Tidak pernah ada secret Telegram di production.
-- **Scan Struk**: `POST /api/receipt-scans` (multipart, Cek MIME/magic/size/origin) memakai Workers AI `@cf/meta/llama-3.2-11b-vision-instruct`. Foto di-resize browser (`receiptImage.ts`, max 1800px, JPEG ≤2 MiB, EXIF ter-strip) dan tidak disimpan ke D1/R2/KV/Cache/IndexedDB. Hasil hanya **draft terkonfirmasi** (tidak auto-submit). Model berbayar unit-based ($0.049/M input, $0.68/M output) — sistem neurons sudah dicabut sesuai docs 2026. Meta license di-accept via request `{"prompt":"agree"}`.
+- **Telegram tidak aktif.** Runtime bot (routes/services/test/scripts) dihapus; migration history, kolom, dan channel `notify_telegram` dipertahankan sebagai kompatibilitas historis. Telegram hanya kandidat add-on opsional di future update; kanal aktif saat ini Dashboard + Web Push.
+- **Scan Struk**: `POST /api/receipt-scans` (multipart, cek MIME/magic/size/origin) memakai Workers AI `@cf/meta/llama-3.2-11b-vision-instruct`. Foto di-resize browser (`receiptImage.ts`, max 1800px, JPEG ≤2 MiB, EXIF ter-strip) dan tidak disimpan ke D1/R2/KV/Cache/IndexedDB. Hasil hanya **draft terkonfirmasi** (tidak auto-submit). Pricing/quota Workers AI dapat berubah dan wajib dicek dari dokumentasi resmi Cloudflare sebelum deployment baru.
 - **Web Push**: opt-in per perangkat (device UUID di localStorage), `PUT/DELETE /api/push/subscriptions/:deviceId` + `GET /api/push/status`, VAPID RFC 8292 via `@block65/webcrypto-web-push` (`^2.0.0`), max 10 device per user, outbox delivery terpisah (`web_push_deliveries`) dengan lease/retry/cleanup 404-410. Scheduled fan-out reminder & budget memakai `Promise.allSettled` agar tidak memblok schedule.
 - **Notifikasi transaksi**: `notifyTransactionCreated` (`src/services/transactions.ts`) membuat notifikasi `kind='transaction'` untuk pasangan saat income/expense dibuat (title: "X mencatat pengeluaran", body: "Rp50.000 — deskripsi"), dengan `dedupe_key transaction:{id}:{partnerId}`. Fan-out Web Push mencakup `kind IN ('reminder', 'budget_threshold', 'transaction')` dan route POST `/api/transactions` langsung memicu `deliverWebPushNotifications` via `executionCtx.waitUntil` sehingga push sampai tanpa menunggu schedule 15 menit.
 - Service worker: handler `push` + `notificationclick`; deep link dikunci ke `/` karena SPA fallback (`not_found_handling: single-page-application`) belum diaktifkan.
 - VAPID secrets production: `WEB_PUSH_VAPID_SUBJECT`, `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY` via `scripts/set-web-push-secrets.mjs` (`npm run webpush:secrets:production`); config `config/web-push.production.local.json` di-ignore Git. `.dev.vars.example` hanya placeholder.
-- Migration `0005_telegram_delivery.sql`, `0006_import_jobs.sql`, dan `0007_web_push.sql` sudah diterapkan ke local, remote development, dan production. `0007` menormalkan `notify_web=1` untuk reminder/budget yang sebelumnya `notify_telegram`.
+- Migration `0005_telegram_delivery.sql`, `0006_import_jobs.sql`, dan `0007_web_push.sql` sudah diterapkan ke remote development/production. `0008_disable_telegram_channel.sql` sudah diterapkan lokal untuk menormalkan channel aktif ke Dashboard/Web Push; remote deployment masih menunggu approval.
 - CSP/`_headers`: `img-src` + `blob:` untuk preview object URL struk; `Permissions-Policy: camera=(self)` untuk input kamera.
 - Phase 11 Import/Export: `src/routes/import-export.ts` + `src/services/{import,export}.ts`; export CSV per domain + Excel (papaparse, read-excel-file, write-excel-file, fflate); import CSV/Excel ber-job với preview/mapping/validasi/duplicate detection/atomic (`0006_import_jobs.sql`); UI `DataTransferPage.tsx` + `frontend/src/importExport.ts`.
-- Test: 103 Worker + 43 frontend = 146 (termasuk receipt-scan, web-push, receiptImage, webPush, import/export, notifikasi transaksi); lint/typecheck/format/build hijau. Smoke: health 200, endpoint diproteksi Access; Scan Struk sukses di production (preview sempat tidak tampil → fix CSS jadi full-width; respons invalid → schema jadi toleran via `normalizeReceiptDraft` + `.passthrough()`). Web Push belum di-smoke-test perangkat nyata; import/export belum diuji penuh dua arah di production.
-- Residual: smoke test dua pengguna (User Dua pending), smoke Web Push di perangkat nyata, uji installability/offline reload, audit accessibility mendalam, frontend E2E test.
+- Test: 106 Worker + 43 frontend = 149 (termasuk receipt-scan, web-push, receiptImage, webPush, import/export, notifikasi transaksi); lint/typecheck/format/build hijau. Smoke: health 200, endpoint diproteksi Access; Scan Struk sukses di production (preview sempat tidak tampil → fix CSS jadi full-width; respons invalid → schema jadi toleran via `normalizeReceiptDraft` + `.passthrough()`). Web Push belum di-smoke-test perangkat nyata; import/export belum diuji penuh dua arah di production.
+- Residual: smoke test user kedua, smoke Web Push di perangkat nyata, uji installability/offline reload, audit accessibility mendalam, frontend E2E test.
 
 Jangan memasukkan email atau identifier pribadi ke Git.
 
@@ -38,7 +38,7 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 - Frontend dan API memakai Cloudflare Workers + Static Assets pada origin yang sama.
 - Backend memakai TypeScript, Hono, dan Zod.
 - Cloudflare D1 menjadi source of truth.
-- Google Sheets hanya menjadi laporan/mirror data, bukan database utama.
+- Google Sheets belum diimplementasikan dan hanya kandidat future update; jika kelak dibuat, D1 tetap source of truth.
 - Login dua pengguna memakai Cloudflare Access.
 - Scan Struk memakai Cloudflare Workers AI (model vision Meta Llama); hasil hanya draft terkonfirmasi.
 - Notifikasi push memakai Web Push (VAPID) lewat service worker; kanal historis Telegram tidak dipakai.
@@ -105,8 +105,7 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 
 ## Integrasi dan Portabilitas
 
-- Google Sheets terdiri dari dua sheet transaksi, dua sheet ringkasan individu, dan satu sheet tabungan.
-- Kegagalan sinkronisasi Sheets tidak boleh menggagalkan transaksi D1.
+- Google Sheets bersifat roadmap opsional tanpa timeline; jika kelak dibuat, kegagalan sinkronisasi tidak boleh menggagalkan transaksi D1.
 - Export mendukung CSV per domain data dan Excel keseluruhan.
 - Import CSV/Excel wajib memiliki preview, column mapping, validasi, duplicate detection, dan atomic import.
 
@@ -135,7 +134,7 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 - [x] Konfigurasi Cloudflare Access dengan allowlist dua email.
 - [x] Buat identity middleware dan mapping email ke user D1.
 - [x] Terapkan ownership guard pada seluruh mutation.
-- [x] Lindungi semua endpoint selain health dan Telegram webhook.
+- [x] Lindungi semua endpoint aplikasi selain health; tidak ada endpoint webhook publik.
 - [x] Nonaktifkan direct access melalui `workers.dev` pada production.
 - [x] Tambahkan unauthorized, forbidden, ownership, dan spoofing tests.
 
@@ -187,17 +186,13 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 - [x] Pastikan data stale menampilkan waktu sinkronisasi terakhir.
 - [x] Uji installability, offline reload, reconnect, dan duplicate prevention.
 
-## Phase 9 - Telegram
+## Phase 9 - Penggantian Telegram
 
-- [x] Batalkan fitur Telegram Bot; kanal notifikasi diganti Web Push. Runtime bot (routes/services/test/scripts) dihapus; migration history, kolom, dan channel `notify_telegram` dipertahankan sebagai kompatibilitas historis.
+- [x] Hapus runtime Telegram Bot dan ganti kanal aktif dengan Web Push. Migration history/kolom lama dipertahankan untuk kompatibilitas; integrasi Telegram hanya kandidat add-on future update.
 
-## Phase 10 - Google Sheets
+## Phase 10 - Google Sheets (Deferred)
 
-- [ ] Buat adapter Google Service Account menggunakan Web Crypto.
-- [ ] Sinkronkan dua sheet transaksi, dua ringkasan, dan satu tabungan.
-- [ ] Tambahkan scheduled sync, manual sync, retry, dan sync status.
-- [ ] Pastikan proses idempotent dan D1 tetap authoritative.
-- [ ] Uji credential invalid, API failure, retry, dan sheet mapping.
+- [ ] Future update opsional tanpa timeline: adapter, scheduled/manual sync, retry, dan status; D1 wajib tetap authoritative.
 
 ## Phase 11 - Import dan Export
 
@@ -209,30 +204,30 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 
 ## Phase 12 - Open Source dan CI
 
-- [ ] Tambahkan `README.md`, MIT `LICENSE`, `SECURITY.md`, dan `CONTRIBUTING.md`.
-- [ ] Tambahkan `.github/FUNDING.yml` menuju Buy Me a Coffee.
-- [ ] Tambahkan GitHub Actions untuk lint, typecheck, test, build, dan secret scanning.
-- [ ] Tambahkan issue templates dan environment examples tanpa credential nyata.
-- [ ] Pastikan fixture/demo memakai data dummy.
-- [ ] Audit dependency, secrets, generated files, dan repository history sebelum public push.
+- [x] Selesaikan README dan setup guide bilingual serta dua PDF terpisah.
+- [x] Tambahkan MIT `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, dan penjelasan layanan komersial.
+- [x] Tambahkan `.github/FUNDING.yml` menuju Buy Me a Coffee.
+- [x] Tambahkan GitHub Actions untuk lint, typecheck, test, build, dan secret scanning.
+- [x] Tambahkan issue/PR templates, Dependabot, dan environment examples tanpa credential nyata.
+- [x] Pastikan fixture/demo baru memakai data dummy; identifier lama pada current branch disanitasi.
+- [ ] Selesaikan audit dependency, secrets, generated files, dan repository history sebagai post-public review.
 
 ## Phase 13 - Production Deployment
 
 - [x] Buat D1 production dan jalankan initial migration.
 - [x] Jalankan seluruh migration terbaru sebelum deploy.
-- [ ] Pasang seluruh Cloudflare Secrets.
+- [x] Pasang Cloudflare Access dan Web Push secrets yang aktif.
 - [x] Deploy Worker + Static Assets.
-- [ ] Hubungkan `rangkumin.dikadevit.my.id` dan aktifkan Cloudflare Access.
-- [ ] Daftarkan Telegram webhook dan scheduled triggers production.
-- [ ] Jalankan smoke test dua pengguna, PWA, Telegram, dan Google Sheets.
-- [ ] Push repository public hanya setelah security review lulus.
+- [x] Hubungkan `rangkumin.dikadevit.my.id`, aktifkan Cloudflare Access, dan pasang scheduled triggers.
+- [ ] Jalankan smoke test user kedua, PWA/offline, Web Push perangkat nyata, dan Import/Export production.
+- [ ] Selesaikan post-public security remediation dan aktifkan branch protection.
 
 # SECURITY NOTES
 
-- Jangan pernah commit Telegram token, Telegram user ID, Google private key, Service Account JSON, spreadsheet ID production, email pengguna, Cloudflare token, atau transaksi nyata.
+- Jangan pernah commit private key, token, identifier/email pengguna, Service Account JSON, spreadsheet ID production, foto struk, atau transaksi nyata.
 - Gunakan prepared statement untuk D1 dan validasi seluruh input di server.
 - Escape output pengguna dan cegah CSV/formula injection saat export.
-- Endpoint Telegram adalah public exception dari Cloudflare Access sehingga wajib divalidasi dengan secret dan allowlist.
+- Jika webhook Telegram opsional kelak dibuat, endpoint publik wajib memakai secret, allowlist, rate limit, dan idempotency; versi aktif tidak memiliki webhook publik.
 - Service Worker tidak boleh menyimpan credential atau response sensitif yang tidak dibutuhkan untuk offline mode.
 
 # AGENT BEHAVIOR

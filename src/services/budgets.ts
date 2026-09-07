@@ -280,10 +280,7 @@ export async function evaluateBudgetAlerts(
     for (const threshold of budget.thresholds) {
       if (budget.percentage < threshold.percentage) continue;
       for (const recipient of recipients) {
-        for (const channel of [
-          ...(threshold.notifyWeb ? ["dashboard"] : []),
-          ...(threshold.notifyTelegram ? ["telegram"] : []),
-        ]) {
+        for (const channel of threshold.notifyWeb ? ["dashboard"] : []) {
           const result = await database
             .prepare(
               `INSERT INTO notifications (

@@ -5,6 +5,15 @@
   "description": "Aplikasi keuangan pasangan berbasis Cloudflare Workers.",
   "license": "MIT",
   "author": "Andika Fadil",
+  "homepage": "https://rangkumin.dikadevit.my.id",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andikafadil28/rangkumin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/andikafadil28/rangkumin/issues"
+  },
+  "funding": "https://buymeacoffee.com/dikadev",
   "type": "module",
   "engines": {
     "node": ">=22.0.0"
@@ -13,6 +22,7 @@
     "dev": "npm run build:frontend && wrangler dev",
     "dev:frontend": "vite --config vite.config.ts",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
+    "docs:pdf": "node scripts/build-docs.mjs",
     "build:frontend": "vite build --config vite.config.ts",
     "build": "npm run build:frontend && wrangler deploy --dry-run --env=\"\" --outdir dist",
     "types": "wrangler types --include-runtime=false",
@@ -60,6 +70,7 @@
     "eslint": "^10.0.0",
     "fake-indexeddb": "^6.2.5",
     "globals": "^17.3.0",
+    "marked": "^18.0.11",
     "prettier": "^3.9.0",
     "sharp": "^0.35.2",
     "typescript": "^5.9.3",

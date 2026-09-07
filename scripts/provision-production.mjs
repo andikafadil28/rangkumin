@@ -1,5 +1,7 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const configPath = new URL(
@@ -92,22 +94,31 @@ if (!process.argv.includes("--apply")) {
 const wranglerPath = fileURLToPath(
   new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url),
 );
-const result = spawnSync(
-  process.execPath,
-  [
-    wranglerPath,
-    "d1",
-    "execute",
-    "DB",
-    "--remote",
-    "--env",
-    "production",
-    "--command",
-    buildSql(users),
-    "--yes",
-  ],
-  { stdio: "inherit" },
-);
+const temporaryDirectory = mkdtempSync(join(tmpdir(), "rangkumin-provision-"));
+const sqlPath = join(temporaryDirectory, "users.sql");
+let result;
+
+try {
+  writeFileSync(sqlPath, buildSql(users), { mode: 0o600 });
+  result = spawnSync(
+    process.execPath,
+    [
+      wranglerPath,
+      "d1",
+      "execute",
+      "DB",
+      "--remote",
+      "--env",
+      "production",
+      "--file",
+      sqlPath,
+      "--yes",
+    ],
+    { stdio: "inherit" },
+  );
+} finally {
+  rmSync(temporaryDirectory, { recursive: true, force: true });
+}
 
 if (result.error || result.status !== 0) {
   fail("Wrangler gagal menyimpan user ke D1 production.");

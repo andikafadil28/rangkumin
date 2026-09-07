@@ -47,6 +47,16 @@ describe("reminder schemas", () => {
     ).toBe(false);
   });
 
+  it("menolak channel Telegram yang belum tersedia", () => {
+    expect(
+      createReminderSchema.safeParse({
+        ...base,
+        notify_web: true,
+        notify_telegram: true,
+      }).success,
+    ).toBe(false);
+  });
+
   it("menerima partial update dan menolak body kosong", () => {
     expect(updateReminderSchema.safeParse({ title: "Bayar PLN" }).success).toBe(
       true,
@@ -122,6 +132,6 @@ describe("reminder delivery", () => {
 
     await processDueReminders(database, new Date("2026-09-06T00:00:00.000Z"));
     await processDueReminders(database, new Date("2026-09-06T00:00:00.000Z"));
-    expect(notifications).toBe(2);
+    expect(notifications).toBe(1);
   });
 });

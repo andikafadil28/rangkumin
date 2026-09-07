@@ -1,0 +1,46 @@
+name: Bug report
+description: Laporkan perilaku yang dapat direproduksi tanpa data sensitif.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Jangan kirim credential, email pengguna, foto struk, atau data finansial nyata. Gunakan Security Advisory untuk kerentanan.
+  - type: textarea
+    id: description
+    attributes:
+      label: Deskripsi
+      description: Apa yang terjadi dan apa yang seharusnya terjadi?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Langkah reproduksi
+      placeholder: "1. Buka ...\n2. Pilih ...\n3. Lihat error ..."
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versi atau commit
+      placeholder: 95aa863
+  - type: input
+    id: environment
+    attributes:
+      label: Browser dan perangkat
+      placeholder: Chrome 140, Android 16
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log yang sudah disanitasi
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist privasi
+      options:
+        - label: Saya sudah menghapus credential dan data pribadi dari laporan ini.
+          required: true
+        - label: Ini bukan laporan kerentanan keamanan.
+          required: true

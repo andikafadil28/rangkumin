@@ -68,7 +68,7 @@ describe("budget schemas", () => {
         ...base,
         thresholds: [
           { percentage: 80, notify_web: true, notify_telegram: false },
-          { percentage: 80, notify_web: false, notify_telegram: true },
+          { percentage: 80, notify_web: true, notify_telegram: false },
         ],
       }).success,
     ).toBe(false);
@@ -80,6 +80,17 @@ describe("budget schemas", () => {
         ...base,
         thresholds: [
           { percentage: 80, notify_web: false, notify_telegram: false },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("menolak channel Telegram yang belum tersedia", () => {
+    expect(
+      createBudgetSchema.safeParse({
+        ...base,
+        thresholds: [
+          { percentage: 80, notify_web: true, notify_telegram: true },
         ],
       }).success,
     ).toBe(false);
@@ -143,13 +154,13 @@ describe("updateBudget", () => {
       budgetId: "budget-1",
       actorUserId: "user-1",
       thresholds: [
-        { percentage: 80, notifyWeb: false, notifyTelegram: true },
+        { percentage: 80, notifyWeb: true, notifyTelegram: false },
         { percentage: 90, notifyWeb: true, notifyTelegram: false },
       ],
     });
 
     expect([...thresholds.entries()]).toEqual([
-      [80, { id: "threshold-80", notifyWeb: 0, notifyTelegram: 1 }],
+      [80, { id: "threshold-80", notifyWeb: 1, notifyTelegram: 0 }],
       [90, { id: expect.any(String), notifyWeb: 1, notifyTelegram: 0 }],
     ]);
   });

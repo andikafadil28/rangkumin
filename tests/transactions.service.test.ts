@@ -396,7 +396,7 @@ describe("notifyTransactionCreated", () => {
           type: "expense",
         },
       },
-      "Andika",
+      "Ari",
     );
 
     const insert = database.calls.find((call) =>
@@ -409,7 +409,7 @@ describe("notifyTransactionCreated", () => {
       expect.any(String),
       "user-2",
       "transaction-1",
-      "Andika mencatat pengeluaran",
+      "Ari mencatat pengeluaran",
       "Rp50.000 — Makan siang",
       "transaction:transaction-1:user-2",
       expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
@@ -437,7 +437,7 @@ describe("notifyTransactionCreated", () => {
         updatedAt: "2026-09-05T00:00:00.000Z",
         category: null,
       },
-      "Andika",
+      "Ari",
     );
 
     expect(database.calls).toHaveLength(0);
@@ -469,7 +469,7 @@ describe("notifyTransactionCreated", () => {
         updatedAt: "2026-09-05T00:00:00.000Z",
         category: null,
       },
-      "Andika",
+      "Ari",
     );
 
     expect(

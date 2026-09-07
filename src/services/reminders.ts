@@ -375,10 +375,7 @@ export async function processDueReminders(
           reminder.updated_at,
         ),
       ...recipients.flatMap((recipient) =>
-        [
-          ...(reminder.notify_web ? ["dashboard"] : []),
-          ...(reminder.notify_telegram ? ["telegram"] : []),
-        ].map((channel) =>
+        (reminder.notify_web ? ["dashboard"] : []).map((channel) =>
           database
             .prepare(
               `INSERT INTO notifications (
@@ -486,7 +483,7 @@ export async function processSnoozedOccurrences(
   const { results } = await database
     .prepare(
       `SELECT ro.id, ro.snoozed_until, r.id AS reminder_id, r.title,
-         r.description, r.notify_web, r.notify_telegram, r.updated_at
+         r.description, r.notify_web, r.updated_at
        FROM reminder_occurrences ro
        JOIN reminders r ON r.id = ro.reminder_id
        WHERE ro.status = 'snoozed' AND ro.snoozed_until <= ?1 AND r.is_active = 1
@@ -500,7 +497,6 @@ export async function processSnoozedOccurrences(
       title: string;
       description: string | null;
       notify_web: number;
-      notify_telegram: number;
       updated_at: string;
     }>();
 
@@ -515,10 +511,7 @@ export async function processSnoozedOccurrences(
     ).results;
     const statements = [];
     for (const recipient of recipients) {
-      for (const channel of [
-        ...(occurrence.notify_web ? ["dashboard"] : []),
-        ...(occurrence.notify_telegram ? ["telegram"] : []),
-      ]) {
+      for (const channel of occurrence.notify_web ? ["dashboard"] : []) {
         statements.push(
           database
             .prepare(

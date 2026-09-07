@@ -1,96 +1,119 @@
 # Rangkumin
 
-Aplikasi keuangan pasangan berbasis web untuk mencatat pemasukan, pengeluaran, saldo, tabungan, anggaran, dan pengingat. Dibangun di atas Cloudflare Workers + Static Assets dengan D1 sebagai database, tanpa hosting berbayar.
+[English](README.en.md) | **Bahasa Indonesia**
 
-- Production: <https://rangkumin.dikadevit.my.id>
-- Lisensi: MIT — Copyright (c) 2026 Andika Fadil
+Aplikasi keuangan pasangan berbasis web/PWA untuk mencatat pemasukan, pengeluaran, tabungan, anggaran, pengingat, dan portabilitas data. Berjalan secara serverless di Cloudflare Workers + Static Assets dengan D1 sebagai source of truth.
+
+- Production resmi: <https://rangkumin.dikadevit.my.id> (akses privat untuk dua pengguna)
+- Lisensi core: [MIT](LICENSE)
+- Layanan setup/support: [Commercial Services](COMMERCIAL.md)
 - Donasi: <https://buymeacoffee.com/dikadev>
 
-## Fitur
+## Fitur aktif
 
-- **Transaksi & kategori** — income, expense, dan mutasi tabungan (`saving_deposit`, `saving_withdrawal`, `saving_transfer`) dengan kategori default dan custom per pengguna, filter, pagination, dan Trash (restore/purge otomatis 30 hari).
-- **Scan Struk (Workers AI)** — foto struk di-resize di browser lalu dibaca model vision (Llama 3.2), hasilnya menjadi **draft transaksi** yang dikonfirmasi manual sebelum disimpan; foto tidak pernah disimpan.
-- **Notifikasi transaksi** — pasangan diberi tahu saat ada pemasukan/pengeluaran baru (jumlah + siapa yang mencatat) melalui dashboard dan Web Push.
-- **Web Push** — notifikasi anggaran, pengingat, dan transaksi sampai ke perangkat; untuk pengingat tersedia aksi _Sudah Dibayar_, _Ingatkan Lagi_, dan _Catat sebagai Pengeluaran_.
-- **Tabungan** — beberapa pos pribadi dan bersama, target opsional, setor/tarik/transfer antarpos secara atomik, saldo tidak boleh negatif, dan arsip pos.
-- **Anggaran** — per kategori untuk pengguna tertentu atau bersama, berulang otomatis setiap bulan, ambang peringatan dan kanal notifikasi (dashboard/Web Push) yang bisa dikonfigurasi.
-- **Pengingat** — sekali, interval, mingguan, atau bulanan; penerima personal/bersama; penyelesaian manual.
-- **Import/Export** — export CSV per domain data dan Excel keseluruhan; import CSV/Excel dengan preview, mapping kolom, validasi, deteksi duplikat, dan commit atomik.
-- **Dashboard** — dua ringkasan individu + kartu gabungan, grafik arus income vs expense, distribusi kategori, perkembangan tabungan, dan notifikasi.
-- **Tiga suasana tampilan** — Bersama, Tenang, dan Minimal, dengan pilihan disimpan lokal di perangkat.
-- **Realtime refresh** — polling ringan tiap 10 detik (dijeda saat tab tidak aktif, langsung segar saat kembali fokus) dan refresh senyap tanpa mengganggu tampilan.
-- **PWA & offline** — app installable, snapshot data terakhir, dan offline outbox yang sinkron otomatis dengan idempotency key.
+- **Transaksi dan kategori** — income, expense, mutasi tabungan, kategori default/custom, filter, pagination, Trash, dan ownership guard backend.
+- **Scan Struk** — Workers AI membaca JPEG/PNG/WebP menjadi draft transaksi yang wajib dikonfirmasi; foto di-resize, EXIF dibuang, dan tidak disimpan.
+- **Dashboard dan Web Push** — notifikasi transaksi pasangan, pengingat, serta ambang anggaran dengan VAPID dan delivery outbox.
+- **Tabungan** — pos pribadi/bersama, target opsional, setor, tarik, dan transfer atomik tanpa saldo negatif.
+- **Anggaran dan pengingat** — recurrence, recipient personal/bersama, threshold, complete, snooze, dan catat sebagai pengeluaran.
+- **Import/Export** — CSV per domain dan Excel keseluruhan; import memakai preview, mapping, validasi, duplicate detection, serta commit atomik.
+- **PWA dan offline** — installable, snapshot terakhir, offline transaction outbox, retry, serta idempotency key.
+- **Tampilan responsive** — mode Bersama/Saya dan tema Bersama, Tenang, atau Minimal.
 
-## Arsitektur
+Google Sheets dan Telegram **belum tersedia** pada versi aktif. Keduanya hanya kandidat add-on/update opsional di masa depan.
 
-- **Frontend & API** di Cloudflare Workers + Static Assets pada origin yang sama (React + Vite, di-build ke `public/`).
-- **Backend** TypeScript, Hono, dan Zod; semua query D1 memakai prepared statement.
-- **Authentication & authorization** via Cloudflare Access (allowlist dua email) dengan ownership guard di backend — data pasangan read-only, mutation hanya untuk pemilik.
-- **D1** menjadi source of truth; Google Sheets hanya laporan/mirror.
-- **Notifikasi** via Dashboard + Web Push (VAPID RFC 8292); delivery Web Push memakai outbox terpisah dengan lease/retry.
-- **PWA** menyimpan app shell, snapshot terakhir, dan offline outbox di IndexedDB.
-- Timezone default `Asia/Jakarta`, currency `IDR`, semua nominal disimpan sebagai integer.
+## Dokumentasi setup
 
-## Teknologi
+| Bahasa    | Markdown                                     | PDF                                                     |
+| --------- | -------------------------------------------- | ------------------------------------------------------- |
+| Indonesia | [Setup lokal + Cloudflare](docs/setup.id.md) | [Unduh PDF Indonesia](docs/pdf/rangkumin-setup-id.pdf)  |
+| English   | [Local + Cloudflare setup](docs/setup.en.md) | [Download English PDF](docs/pdf/rangkumin-setup-en.pdf) |
 
-Node.js · TypeScript · Hono · Zod · React 19 · Vite · Cloudflare Workers · D1 · Workers AI · Vitest · ESLint · Prettier
+Panduan mencakup setup lokal, D1, Cloudflare Access, custom domain, VAPID Web Push, Workers AI, deployment, scheduler, dan smoke test production.
+
+## Mulai lokal
+
+Persyaratan: Node.js 22+, npm, dan Git.
+
+```bash
+git clone https://github.com/andikafadil28/rangkumin.git
+cd rangkumin
+npm ci
+npm run db:migrate:local
+npm run db:seed:local
+npm run dev
+```
+
+Pada terminal kedua:
+
+```bash
+npm run dev:frontend
+```
+
+Buka <http://localhost:5173>. Detail autentikasi development dan fitur opsional tersedia di [panduan setup Indonesia](docs/setup.id.md).
+
+## Deploy Cloudflare
+
+Deployment baru membutuhkan resource milik sendiri: Worker, dua D1 (development/production), custom domain, Cloudflare Access, Workers AI, serta pasangan VAPID. Jangan memakai ID database atau domain instalasi resmi.
+
+Alur ringkas:
+
+```bash
+npx wrangler login
+# Buat D1 dan ganti resource/domain di wrangler.jsonc
+npm run db:migrate:production
+npm run db:provision:production -- --apply
+npm run build
+npx wrangler deploy --env production
+npm run access:secrets:production -- --apply
+npm run webpush:secrets:production -- --apply
+```
+
+Ikuti [panduan deployment lengkap](docs/setup.id.md#4-setup-production-cloudflare). Environment development tidak boleh diekspos publik karena memakai header identitas dummy; production wajib dilindungi Cloudflare Access.
+
+## Quality gate
+
+```bash
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+Snapshot terakhir yang terverifikasi: **106 Worker test + 43 frontend test = 149 test**.
+
+PDF dapat diregenerasi dengan Chrome, Edge, atau Chromium:
+
+```bash
+npm run docs:pdf
+```
 
 ## Struktur
 
-```
-src/                  Worker: routes, services, schemas, middleware
-migrations/           Skema D1 (SQL)
-seeds/                Seeder development (data dummy)
-tests/                Unit & integration tests (Vitest)
-frontend/src/         UI React (halaman, komponen, api client)
-public/               Hasil build Vite + index.html untuk Static Assets
-docs/                 Catatan operasional database
-scripts/              Skrip provision & access production
-wrangler.jsonc        Konfigurasi Worker (env development & production)
-```
-
-## Menjalankan di lokal
-
-Persyaratan: Node.js ≥ 22 dan `wrangler login`.
-
-```bash
-npm install
-npm run db:migrate:local    # apply migration D1 lokal
-npm run db:seed:local       # seed dua user dummy + kategori default
-npm run dev                 # build frontend lalu jalankan Worker di :8787
-npm run dev:frontend        # terminal kedua: Vite di :5173 (proxy /api -> :8787)
+```text
+src/                  Worker routes, services, schemas, middleware
+frontend/src/         React UI, PWA, offline, dan Web Push client
+migrations/           Migration D1 forward-only
+seeds/                Data dummy development
+tests/                Worker tests
+frontend-tests/       Frontend tests
+docs/                 Panduan operasional dan setup bilingual
+scripts/              Provisioning, secret setup, dan PDF generator
+public/               Static build yang dilayani Worker
 ```
 
-Buka <http://localhost:5173>. Vite proxy menyuntikkan identitas development (`user1@example.invalid`, nama tampilan sesuai seed) sehingga API lokal terautentikasi tanpa Cloudflare Access; production tetap mewajibkan JWT Access.
+## Status dan roadmap
 
-Catatan: Workers AI memanggil resource remote sehingga Scan Struk dapat memakai kuota saat development.
+- Phase 1–9 dan Phase 11 selesai; Phase 10 Google Sheets ditunda.
+- Phase 12 berfokus pada dokumentasi, open-source readiness, CI, dan audit security.
+- Residual production: smoke test dua user, Web Push perangkat nyata, PWA/offline reload, accessibility mendalam, dan frontend E2E.
+- Kandidat future update: Google Sheets reporting/mirror dan Telegram integration sebagai add-on opsional. Tidak ada timeline yang dijanjikan.
 
-## Production
+## Keamanan
 
-```bash
-npm run db:provision:production   # buat D1 production lalu apply migration
-npm run db:migrate:production     # apply migration terbaru
-npm run access:secrets:production # set secret Cloudflare Access
-npm run webpush:secrets:production # set secret VAPID Web Push
-npm run build
-npx wrangler deploy --env production
-```
+Jangan membuat issue publik untuk kerentanan atau mengirim data finansial nyata. Ikuti [SECURITY.md](SECURITY.md) dan gunakan GitHub Security Advisories.
 
-Sebelum provisioning production, buat config lokal dari example di `config/` (`users`, `access`, `web-push`) — seluruh `config/*.local.json` di-ignore Git. Jalankan script secret tanpa `--apply` untuk validasi, lalu ulangi dengan `--apply` setelah nilainya benar.
+## Kontribusi dan lisensi
 
-## Kualitas
-
-```bash
-npm run lint
-npm run typecheck
-npm test            # Worker + frontend tests
-npm run build       # build frontend + Wrangler dry-run
-npm run format      # prettier --write
-npm run format:check
-```
-
-## Status
-
-- Phase 1–11 selesai dan sudah di-deploy ke production (146 test, lint/typecheck/format/build hijau).
-- Telegram Bot **dibatalkan**; kanal notifikasi diganti Dashboard + Web Push.
-- Roadmap selanjutnya: Phase 10 Google Sheets, Phase 12 open source & CI, Phase 13 penuntasan production (smoke test dua pengguna, Web Push perangkat nyata, dll.).
+Baca [CONTRIBUTING.md](CONTRIBUTING.md) dan [Code of Conduct](CODE_OF_CONDUCT.md). Core Rangkumin tersedia di bawah [MIT License](LICENSE), termasuk penggunaan komersial. Setup, support, custom branding, managed service, dan add-on privat dapat ditawarkan terpisah tanpa mengurangi hak atas core MIT.

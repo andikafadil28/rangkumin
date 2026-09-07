@@ -28,8 +28,8 @@ const reminderFields = {
       (items) => new Set(items).size === items.length,
       "Penerima reminder tidak boleh duplikat.",
     ),
-  notify_web: z.boolean().default(true),
-  notify_telegram: z.boolean().default(true),
+  notify_web: z.literal(true).default(true),
+  notify_telegram: z.literal(false).default(false),
 };
 
 function validRecurrence(value: {
@@ -47,14 +47,13 @@ function validRecurrence(value: {
 
 const reminderObjectSchema = z.object(reminderFields).strict();
 
-export const createReminderSchema = reminderObjectSchema
-  .refine(validRecurrence, {
+export const createReminderSchema = reminderObjectSchema.refine(
+  validRecurrence,
+  {
     message: "interval_value tidak sesuai recurrence_type.",
     path: ["interval_value"],
-  })
-  .refine((value) => value.notify_web || value.notify_telegram, {
-    message: "Minimal satu notification channel wajib aktif.",
-  });
+  },
+);
 
 export const updateReminderSchema = z
   .object({
@@ -66,8 +65,8 @@ export const updateReminderSchema = z
     interval_value: reminderFields.interval_value,
     next_run_at: isoDateTimeSchema.optional(),
     recipient_user_ids: reminderFields.recipient_user_ids.optional(),
-    notify_web: z.boolean().optional(),
-    notify_telegram: z.boolean().optional(),
+    notify_web: z.literal(true).optional(),
+    notify_telegram: z.literal(false).optional(),
     is_active: z.boolean().optional(),
   })
   .strict()

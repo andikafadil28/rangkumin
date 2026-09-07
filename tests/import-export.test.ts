@@ -106,6 +106,33 @@ describe("import parser", () => {
     });
   });
 
+  it("memigrasikan channel Telegram historis ke Web Push", async () => {
+    const budget = await parseAndValidateImport(
+      csvFile(
+        "ownership_scope,category_name,monthly_limit,starts_on,is_active,thresholds\npersonal,Makanan,500000,2026-09-01,1,80:0:1",
+      ),
+      "budgets",
+      {},
+    );
+    expect(budget.rows[0]).toMatchObject({
+      thresholds: [
+        { percentage: 80, notify_web: true, notify_telegram: false },
+      ],
+    });
+
+    const reminder = await parseAndValidateImport(
+      csvFile(
+        "title,description,amount,category_name,recurrence_type,interval_value,next_run_at,timezone,is_active,notify_web,notify_telegram\nBayar listrik,,100000,Makanan,monthly,20,2026-09-20T01:00:00.000Z,Asia/Jakarta,1,0,1",
+      ),
+      "reminders",
+      {},
+    );
+    expect(reminder.rows[0]).toMatchObject({
+      notify_web: true,
+      notify_telegram: false,
+    });
+  });
+
   it("menolak CSV malformed, oversized, dan lebih dari 500 baris", async () => {
     await expect(
       parseAndValidateImport(
