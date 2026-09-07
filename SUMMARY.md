@@ -17,6 +17,8 @@
 
 Terverifikasi lokal dan CI: **106 Worker test + 43 frontend test = 149**, lint/typecheck/format/build/secret scan hijau.
 
+Dokumentasi mencakup README bilingual, setup guide teknis Indonesia/English, dan panduan instalasi pemula step-by-step Indonesia/English; masing-masing panduan tersedia sebagai PDF terpisah.
+
 Fitur yang sudah ada di production:
 
 - **Scan Struk** `POST /api/receipt-scans` (multipart; MIME/magic/size/origin divalidasi) memakai Workers AI `@cf/meta/llama-3.2-11b-vision-instruct`. Foto di-resize di browser (`receiptImage.ts`, max 1800px, JPEG ≤2 MiB, EXIF stripped), tidak disimpan. Hasil hanya **draft terkonfirmasi** (tidak auto-submit). Schema toleran via `normalizeReceiptDraft` + `.passthrough()` (amount string `"Rp 25.000"`/`"25000"` dinormalisasi).

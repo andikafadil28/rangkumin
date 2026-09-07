@@ -17,6 +17,16 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputDirectory = join(root, "docs", "pdf");
 const documents = [
   {
+    source: join(root, "docs", "installation-beginner.id.md"),
+    output: join(outputDirectory, "rangkumin-installation-beginner-id.pdf"),
+    language: "id",
+  },
+  {
+    source: join(root, "docs", "installation-beginner.en.md"),
+    output: join(outputDirectory, "rangkumin-installation-beginner-en.pdf"),
+    language: "en",
+  },
+  {
     source: join(root, "docs", "setup.id.md"),
     output: join(outputDirectory, "rangkumin-setup-id.pdf"),
     language: "id",

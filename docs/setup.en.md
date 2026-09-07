@@ -323,10 +323,15 @@ Regenerate the Indonesian and English PDFs:
 npm run docs:pdf
 ```
 
-Output:
+Technical guide output:
 
 - `docs/pdf/rangkumin-setup-id.pdf`
 - `docs/pdf/rangkumin-setup-en.pdf`
+
+Step-by-step beginner guide output:
+
+- `docs/pdf/rangkumin-installation-beginner-id.pdf`
+- `docs/pdf/rangkumin-installation-beginner-en.pdf`
 
 Set `CHROME_PATH` or `EDGE_PATH` if a Chromium browser is not detected automatically.
 

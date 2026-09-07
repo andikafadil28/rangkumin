@@ -15,7 +15,7 @@ Identitas proyek:
 
 # CURRENT
 
-Sesi ini: **Phase 12 Open Source dan CI selesai**, mencakup hardening repo publik, legal/community files, GitHub Actions, dokumentasi setup lokal + Cloudflare dalam Bahasa Indonesia dan English, serta PDF terpisah untuk kedua bahasa.
+Sesi ini: **Phase 12 Open Source dan CI selesai**, mencakup hardening repo publik, legal/community files, GitHub Actions, dokumentasi setup lokal + Cloudflare dalam Bahasa Indonesia dan English, PDF teknis terpisah, serta panduan instalasi pemula step-by-step dengan PDF terpisah untuk kedua bahasa.
 
 Keputusan dan hal penting:
 

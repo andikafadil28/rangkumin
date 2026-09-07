@@ -323,10 +323,15 @@ Regenerasi PDF Indonesia dan English:
 npm run docs:pdf
 ```
 
-Output:
+Output panduan teknis:
 
 - `docs/pdf/rangkumin-setup-id.pdf`
 - `docs/pdf/rangkumin-setup-en.pdf`
+
+Output panduan pemula langkah demi langkah:
+
+- `docs/pdf/rangkumin-installation-beginner-id.pdf`
+- `docs/pdf/rangkumin-installation-beginner-en.pdf`
 
 Set `CHROME_PATH` atau `EDGE_PATH` jika browser Chromium tidak ditemukan otomatis.
 
