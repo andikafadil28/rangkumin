@@ -1,3 +1,5 @@
+import { DEMO_MODE } from "./demoMode";
+
 export type User = { id: string; displayName: string };
 export type SummaryItem = {
   userId: string;
@@ -153,6 +155,10 @@ export async function requestJson<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  if (DEMO_MODE) {
+    const { demoRequestJson } = await import("./demo");
+    return demoRequestJson<T>(path, options);
+  }
   let response: Response;
   try {
     response = await fetch(path, {
@@ -204,6 +210,9 @@ export function safeDownloadFilename(value: string | null, fallback: string) {
 }
 
 export async function downloadFile(path: string, fallbackFilename: string) {
+  if (DEMO_MODE) {
+    throw new Error("Import dan export tidak tersedia pada demo publik.");
+  }
   let response: Response;
   try {
     response = await fetch(path, {
@@ -479,6 +488,10 @@ async function sendWithoutResponse(
   path: string,
   method: "POST" | "PATCH" | "DELETE",
 ) {
+  if (DEMO_MODE) {
+    const { demoSendWithoutResponse } = await import("./demo");
+    return demoSendWithoutResponse(path, method);
+  }
   let response: Response;
   try {
     response = await fetch(path, {

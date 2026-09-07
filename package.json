@@ -21,9 +21,12 @@
   "scripts": {
     "dev": "npm run build:frontend && wrangler dev",
     "dev:frontend": "vite --config vite.config.ts",
+    "dev:demo": "vite --config vite.config.ts --mode demo",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "docs:pdf": "node scripts/build-docs.mjs",
     "build:frontend": "vite build --config vite.config.ts",
+    "build:demo": "vite build --config vite.config.ts --mode demo",
+    "deploy:demo": "npm run build:demo && wrangler deploy --config wrangler.demo.jsonc",
     "build": "npm run build:frontend && wrangler deploy --dry-run --env=\"\" --outdir dist",
     "types": "wrangler types --include-runtime=false",
     "db:migrate:local": "wrangler d1 migrations apply DB --local --env=\"\"",

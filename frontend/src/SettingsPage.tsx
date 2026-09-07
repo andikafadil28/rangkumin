@@ -6,6 +6,7 @@ import {
 } from "./api";
 import { clearOfflineDataSafely } from "./offline/sync";
 import type { ViewMode } from "./viewMode";
+import { DEMO_MODE } from "./demoMode";
 import {
   createBrowserPushDependencies,
   disablePushSubscription,
@@ -48,7 +49,12 @@ export function SettingsPage({
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(true);
   const [pushMessage, setPushMessage] = useState<string | null>(null);
-  const pushAvailability = getPushAvailability();
+  const pushAvailability = DEMO_MODE
+    ? {
+        supported: false,
+        message: "Web Push tidak tersedia pada demo publik.",
+      }
+    : getPushAvailability();
   const pushDependencies = createBrowserPushDependencies({
     getStatus: getPushStatus,
     save: savePushSubscription,
@@ -125,6 +131,19 @@ export function SettingsPage({
   }
 
   async function logout() {
+    if (DEMO_MODE) {
+      if (
+        !window.confirm(
+          "Reset seluruh perubahan dan kembali ke data demo awal?",
+        )
+      )
+        return;
+      setLoggingOut(true);
+      const { resetDemoStore } = await import("./demo");
+      resetDemoStore();
+      window.location.reload();
+      return;
+    }
     const warning =
       offlineCount > 0
         ? `Masih ada ${offlineCount} transaksi yang belum selesai disinkronkan. Keluar sekarang akan menghapus antrean tersebut dari perangkat.`
@@ -162,7 +181,11 @@ export function SettingsPage({
           <div>
             <p className="eyebrow">Akun aktif</p>
             <h2>{displayName}</h2>
-            <span>Terhubung aman melalui Cloudflare Access</span>
+            <span>
+              {DEMO_MODE
+                ? "Profil contoh untuk menjelajahi demo"
+                : "Terhubung aman melalui Cloudflare Access"}
+            </span>
           </div>
         </section>
         <section className="settings-card">
@@ -270,16 +293,18 @@ export function SettingsPage({
           <div className="setting-copy">
             <h2>Import & export data</h2>
             <p>
-              Download salinan CSV/XLSX atau import data dengan preview dan
-              validasi terlebih dahulu.
+              {DEMO_MODE
+                ? "Dinonaktifkan agar demo tidak membaca atau mengirim file dari perangkatmu."
+                : "Download salinan CSV/XLSX atau import data dengan preview dan validasi terlebih dahulu."}
             </p>
           </div>
           <button
             className="secondary-button"
             type="button"
+            disabled={DEMO_MODE}
             onClick={onOpenDataTransfer}
           >
-            Kelola data
+            {DEMO_MODE ? "Tidak tersedia di demo" : "Kelola data"}
           </button>
         </section>
         <section className="settings-card setting-row">
@@ -315,39 +340,42 @@ export function SettingsPage({
             Buka Trash
           </button>
         </section>
-        <section className="settings-card setting-row">
-          <div className="setting-copy">
-            <h2>Data offline perangkat</h2>
-            <p>
-              Snapshot terakhir dan antrean transaksi disimpan di browser ini.
-              {offlineCount > 0
-                ? ` Ada ${offlineCount} transaksi yang belum selesai disinkronkan.`
-                : " Tidak ada transaksi yang menunggu sinkronisasi."}
-            </p>
-            {cleared && (
-              <small role="status">Data offline sudah dihapus.</small>
-            )}
-            {storageError && (
-              <small className="form-error" role="alert">
-                {storageError}
-              </small>
-            )}
-          </div>
-          <button
-            className="secondary-button"
-            type="button"
-            disabled={clearing}
-            onClick={() => void clearDevice()}
-          >
-            {clearing ? "Menghapus..." : "Hapus data offline"}
-          </button>
-        </section>
+        {!DEMO_MODE && (
+          <section className="settings-card setting-row">
+            <div className="setting-copy">
+              <h2>Data offline perangkat</h2>
+              <p>
+                Snapshot terakhir dan antrean transaksi disimpan di browser ini.
+                {offlineCount > 0
+                  ? ` Ada ${offlineCount} transaksi yang belum selesai disinkronkan.`
+                  : " Tidak ada transaksi yang menunggu sinkronisasi."}
+              </p>
+              {cleared && (
+                <small role="status">Data offline sudah dihapus.</small>
+              )}
+              {storageError && (
+                <small className="form-error" role="alert">
+                  {storageError}
+                </small>
+              )}
+            </div>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={clearing}
+              onClick={() => void clearDevice()}
+            >
+              {clearing ? "Menghapus..." : "Hapus data offline"}
+            </button>
+          </section>
+        )}
         <section className="settings-card setting-row logout-setting">
           <div className="setting-copy">
-            <h2>Keluar dari akun</h2>
+            <h2>{DEMO_MODE ? "Reset demo" : "Keluar dari akun"}</h2>
             <p>
-              Sesi Cloudflare Access dan data offline di perangkat ini akan
-              dibersihkan.
+              {DEMO_MODE
+                ? "Hapus perubahan sementara dan kembalikan semua data contoh ke kondisi awal."
+                : "Sesi Cloudflare Access dan data offline di perangkat ini akan dibersihkan."}
             </p>
           </div>
           <button
@@ -356,14 +384,21 @@ export function SettingsPage({
             disabled={loggingOut}
             onClick={() => void logout()}
           >
-            {loggingOut ? "Keluar..." : "Keluar"}
+            {loggingOut
+              ? DEMO_MODE
+                ? "Mereset..."
+                : "Keluar..."
+              : DEMO_MODE
+                ? "Reset demo"
+                : "Keluar"}
           </button>
         </section>
         <aside className="settings-note">
           <b>Tentang data kalian</b>
           <p>
-            Rangkumin tidak menyimpan pengaturan visual ini di server. Data
-            keuangan tetap dilindungi oleh ownership guard backend.
+            {DEMO_MODE
+              ? "Data contoh dan perubahanmu hanya hidup di memori tab ini lalu kembali seperti semula saat halaman dimuat ulang."
+              : "Rangkumin tidak menyimpan pengaturan visual ini di server. Data keuangan tetap dilindungi oleh ownership guard backend."}
           </p>
         </aside>
       </div>

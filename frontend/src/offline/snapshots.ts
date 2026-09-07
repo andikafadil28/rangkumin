@@ -5,6 +5,7 @@ import {
   rememberActiveUser,
   saveSnapshot,
 } from "./db";
+import { DEMO_MODE } from "../demoMode";
 
 export type SnapshotResult<T> = {
   data: T;
@@ -20,6 +21,13 @@ export async function loadDashboardSnapshot(
   signal?: AbortSignal,
   solo = false,
 ) {
+  if (DEMO_MODE) {
+    return {
+      data: await getDashboard(signal, solo),
+      syncedAt: new Date().toISOString(),
+      stale: false,
+    };
+  }
   try {
     const data = await getDashboard(signal, solo);
     const syncedAt = new Date().toISOString();
@@ -56,6 +64,13 @@ export async function loadWithSnapshot<T>(
   resource: string,
   loader: () => Promise<T>,
 ): Promise<SnapshotResult<T>> {
+  if (DEMO_MODE) {
+    return {
+      data: await loader(),
+      syncedAt: new Date().toISOString(),
+      stale: false,
+    };
+  }
   try {
     const data = await loader();
     const syncedAt = new Date().toISOString();

@@ -46,3 +46,9 @@ jobs:
 
       - name: Verify generated assets are current
         run: git diff --exit-code -- public
+
+      - name: Build public demo
+        run: npm run build:demo
+
+      - name: Verify binding-free demo deployment
+        run: npx wrangler deploy --config wrangler.demo.jsonc --dry-run --outdir dist-demo-worker

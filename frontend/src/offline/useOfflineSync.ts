@@ -6,16 +6,18 @@ import {
   retryFailedOutbox,
   syncTransactionOutbox,
 } from "./sync";
+import { DEMO_MODE } from "../demoMode";
 
 export function useOfflineSync(onSynced: () => void) {
   const onSyncedRef = useRef(onSynced);
   onSyncedRef.current = onSynced;
-  const [online, setOnline] = useState(navigator.onLine);
+  const [online, setOnline] = useState(DEMO_MODE ? true : navigator.onLine);
   const [pending, setPending] = useState(0);
   const [failed, setFailed] = useState(0);
   const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (DEMO_MODE) return;
     let active = true;
     const refreshCount = () => {
       void getOutboxItems()
@@ -82,6 +84,7 @@ export function useOfflineSync(onSynced: () => void) {
     failed,
     syncError,
     retry: () => {
+      if (DEMO_MODE) return;
       void (failed > 0 ? retryFailedOutbox() : syncTransactionOutbox())
         .then(() => setSyncError(null))
         .catch((cause: unknown) =>

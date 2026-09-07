@@ -475,7 +475,7 @@ npm run build
 
 Jangan lanjut jika salah satu command gagal. Simpan pesan error yang sudah disanitasi jika memerlukan bantuan.
 
-**Hasil yang diharapkan:** format, lint, typecheck, 149 test, dan build semuanya berhasil.
+**Hasil yang diharapkan:** format, lint, typecheck, 153 test, dan build semuanya berhasil.
 
 ## 26. Deploy Worker
 
