@@ -6,6 +6,7 @@ import {
   getIdentity,
 } from "../api";
 import type { CreateTransactionInput } from "../api";
+import { DEMO_MODE } from "../demoMode";
 import {
   clearOfflineData,
   deleteOutboxItem,
@@ -153,6 +154,10 @@ export async function createOrQueueTransaction(
   input: CreateTransactionInput,
 ) {
   const idempotencyKey = crypto.randomUUID();
+  if (DEMO_MODE) {
+    await createTransaction(input, idempotencyKey, actorUserId);
+    return { status: "synced" as const, idempotencyKey };
+  }
   try {
     await putOutboxItem({
       idempotencyKey,

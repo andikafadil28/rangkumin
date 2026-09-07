@@ -475,7 +475,7 @@ npm run build
 
 Do not continue if a command fails. Save a sanitized error message if you need assistance.
 
-**Expected result:** formatting, lint, typecheck, 149 tests, and build all succeed.
+**Expected result:** formatting, lint, typecheck, 153 tests, and build all succeed.
 
 ## 26. Deploy the Worker
 

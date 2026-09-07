@@ -263,6 +263,42 @@ svg {
   margin-left: 16.5rem;
   padding: 2rem clamp(1.5rem, 4vw, 4.5rem) 4rem;
 }
+.demo-banner {
+  display: flex;
+  max-width: 78rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 auto 2rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--rose) 42%, var(--line));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--rose-soft) 65%, var(--surface));
+}
+.demo-banner div {
+  display: grid;
+  gap: 0.2rem;
+}
+.demo-banner span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+.demo-banner nav {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.5rem;
+}
+.demo-banner a {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 2rem;
+  color: var(--forest-deep);
+  background: var(--surface);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-decoration: none;
+}
 .topbar {
   display: flex;
   max-width: 78rem;
@@ -2958,6 +2994,17 @@ h3 {
 }
 
 @media (max-width: 700px) {
+  .demo-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .demo-banner nav {
+    width: 100%;
+  }
+  .demo-banner a {
+    flex: 1;
+    text-align: center;
+  }
   .sidebar {
     display: none;
   }

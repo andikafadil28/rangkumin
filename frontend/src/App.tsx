@@ -12,6 +12,7 @@ import { loadDashboardSnapshot } from "./offline/snapshots";
 import { useOfflineSync } from "./offline/useOfflineSync";
 import { partitionGoals, setViewMode, getViewMode } from "./viewMode";
 import type { ViewMode } from "./viewMode";
+import { DEMO_MODE } from "./demoMode";
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>;
 type Theme = "together" | "calm" | "minimal";
@@ -388,6 +389,33 @@ export function App() {
       </aside>
 
       <main id="main-content" className="main-content">
+        {DEMO_MODE && (
+          <aside className="demo-banner" aria-label="Informasi demo publik">
+            <div>
+              <b>Mode demo publik</b>
+              <span>
+                Semua data hanya contoh. Perubahan tersimpan sementara di tab
+                ini dan direset saat halaman dimuat ulang.
+              </span>
+            </div>
+            <nav aria-label="Tautan demo">
+              <a
+                href="https://github.com/andikafadil28/rangkumin#dokumentasi-setup"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Dokumentasi
+              </a>
+              <a
+                href="https://github.com/andikafadil28/rangkumin/blob/main/COMMERCIAL.md"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Layanan setup
+              </a>
+            </nav>
+          </aside>
+        )}
         <header className="topbar">
           <div>
             <p className="eyebrow">

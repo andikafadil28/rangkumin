@@ -7,15 +7,16 @@
 **Rangkumin** adalah aplikasi keuangan pasangan berbasis web/PWA. Core open-source (MIT), layanan setup/support komersial terpisah, berjalan serverless di Cloudflare Workers + Static Assets + D1.
 
 - Production: `https://rangkumin.dikadevit.my.id`.
+- Demo publik: `https://demo.rangkumin.dikadevit.my.id`.
 - Repository: `https://github.com/andikafadil28/rangkumin`.
 - Author: Andika Fadil (`@andikafadil28`).
 - Donasi: `https://buymeacoffee.com/dikadev`.
 
 # CURRENT
 
-**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Telegram runtime dihapus dan hanya menjadi kandidat add-on future update. Import/Export, Scan Struk, Web Push, dan notifikasi transaksi income/expense sudah di-deploy ke production.
+**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Telegram runtime dihapus dan hanya menjadi kandidat add-on future update. Import/Export, Scan Struk, Web Push, dan notifikasi transaksi income/expense sudah di-deploy ke production. Demo publik frontend-only juga aktif sebagai Static Assets terpisah tanpa binding backend.
 
-Terverifikasi lokal dan CI: **106 Worker test + 43 frontend test = 149**, lint/typecheck/format/build/secret scan hijau.
+Terverifikasi lokal dan CI: **106 Worker test + 47 frontend test = 153**, lint/typecheck/format/build/secret scan hijau. Demo version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`; root 200 dan `/api/me` hanya SPA fallback HTML.
 
 Dokumentasi mencakup README bilingual, setup guide teknis Indonesia/English, dan panduan instalasi pemula step-by-step Indonesia/English; masing-masing panduan tersedia sebagai PDF terpisah.
 
@@ -27,6 +28,7 @@ Fitur yang sudah ada di production:
 - **Web Push aksi** untuk reminder: Sudah Dibayar, Ingatkan Lagi, Catat sebagai Pengeluaran; deep link terkunci `/`.
 - **Import/Export (Phase 11)**: export CSV per domain + Excel keseluruhan; import CSV/Excel ber-job (preview/mapping/validasi/duplicate detection/atomic) via `0006_import_jobs.sql`.
 - **Dashboard & PWA**: ringkasan dua user + gabungan, grafik, snapshot last-known + offline outbox (idempotency key, `X-Rangkumin-Actor-Id`), view mode Bersama/Saya, tema Bersama/Tenang/Minimal.
+- **Demo publik**: adapter in-memory dengan data dummy dan reset saat reload; Scan Struk, Web Push, Import/Export, service worker, serta IndexedDB dinonaktifkan. Build/deploy memakai `vite --mode demo` dan `wrangler.demo.jsonc` tanpa D1/AI/secret/cron.
 - **Tabungan/anggaran/pengingat**: pos pribadi/bersama + transfer atomik; budget bulanan + custom threshold; reminder sekali/interval/harian/mingguan/bulanan dengan snooze & complete.
 - Auth: Cloudflare Access (JWT diverifikasi) untuk dua pengguna; semua mutation guarded ownership.
 

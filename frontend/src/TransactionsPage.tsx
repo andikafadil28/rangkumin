@@ -22,6 +22,7 @@ import {
 } from "./offline/sync";
 import type { ViewMode } from "./viewMode";
 import { combineReceiptDescription, prepareReceiptImage } from "./receiptImage";
+import { DEMO_MODE } from "./demoMode";
 
 const money = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -289,7 +290,11 @@ function TransactionForm({
               <div className="receipt-scanner-heading">
                 <div>
                   <h3 id="receipt-scanner-title">Scan struk</h3>
-                  <p>Isi draft pengeluaran dari foto, lalu periksa hasilnya.</p>
+                  <p>
+                    {DEMO_MODE
+                      ? "Tidak tersedia pada demo publik karena memakai Workers AI."
+                      : "Isi draft pengeluaran dari foto, lalu periksa hasilnya."}
+                  </p>
                 </div>
                 {!online && <small>Memerlukan koneksi internet.</small>}
               </div>
@@ -300,7 +305,7 @@ function TransactionForm({
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    disabled={!online || scanning}
+                    disabled={DEMO_MODE || !online || scanning}
                     aria-label="Ambil foto struk dengan kamera"
                     onChange={(event) => {
                       void scanSelectedReceipt(event.target.files?.[0]);
@@ -313,7 +318,7 @@ function TransactionForm({
                   <input
                     type="file"
                     accept="image/*"
-                    disabled={!online || scanning}
+                    disabled={DEMO_MODE || !online || scanning}
                     aria-label="Pilih foto struk dari galeri"
                     onChange={(event) => {
                       void scanSelectedReceipt(event.target.files?.[0]);
@@ -673,6 +678,7 @@ export function TransactionsPage({
   }, [userId, type, owner, category, offset, reload, view]);
 
   useEffect(() => {
+    if (DEMO_MODE) return;
     let active = true;
     const refreshOutbox = () => {
       void getOutboxItems()

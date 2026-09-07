@@ -5,6 +5,7 @@
 A web/PWA finance application for couples to track income, expenses, savings, budgets, reminders, and data portability. It runs serverlessly on Cloudflare Workers + Static Assets, with D1 as the source of truth.
 
 - Official production: <https://rangkumin.dikadevit.my.id> (private access for two users)
+- Public demo: <https://demo.rangkumin.dikadevit.my.id> (dummy data, no backend)
 - Core license: [MIT](LICENSE)
 - Setup/support services: [Commercial Services](COMMERCIAL.md)
 - Donations: <https://buymeacoffee.com/dikadev>
@@ -21,6 +22,23 @@ A web/PWA finance application for couples to track income, expenses, savings, bu
 - **Responsive interface** — Together/Me views and Together, Calm, or Minimal themes.
 
 Google Sheets and Telegram are **not available** in the active release. They are only optional candidates for future add-ons or updates.
+
+## Public demo
+
+The demo uses an in-memory browser adapter and a separate Static Assets deployment. It has no D1 or Workers AI bindings, secrets, schedules, or access to the production backend. Changes to transactions, savings, budgets, reminders, and notifications only last in the active tab and reset to the initial fixtures when the page reloads.
+
+Receipt Scan, Web Push, and Import/Export are intentionally disabled. Run the same mode locally with:
+
+```bash
+npm run dev:demo
+```
+
+The demo build and deployment use separate output and configuration:
+
+```bash
+npm run build:demo
+npm run deploy:demo
+```
 
 ## Setup documentation
 
@@ -92,7 +110,7 @@ npm test
 npm run build
 ```
 
-Last verified snapshot: **106 Worker tests + 43 frontend tests = 149 tests**.
+Last verified snapshot: **106 Worker tests + 47 frontend tests = 153 tests**.
 
 Regenerate PDFs using Chrome, Edge, or Chromium:
 
@@ -112,6 +130,8 @@ frontend-tests/       Frontend tests
 docs/                 Bilingual setup and operations guides
 scripts/              Provisioning, secret setup, and PDF generator
 public/               Static build served by the Worker
+dist-demo/             Local demo output (ignored by Git)
+wrangler.demo.jsonc    Binding-free demo Static Assets deployment
 ```
 
 ## Status and roadmap

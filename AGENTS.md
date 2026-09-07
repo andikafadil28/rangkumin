@@ -11,11 +11,11 @@ Identitas proyek:
 - Author: Andika Fadil (`@andikafadil28`).
 - Lisensi: core MIT, `Copyright (c) 2026 Andika Fadil`; layanan dan add-on komersial dapat memakai perjanjian terpisah.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda sebagai future update. Telegram runtime dihapus dan hanya menjadi kandidat add-on opsional. Terverifikasi lokal dan CI: 106 Worker test + 43 frontend test (149), lint/typecheck/format/build/secret scan hijau, dan fitur aktif sudah di-deploy ke production.
+- Status: Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda sebagai future update. Telegram runtime dihapus dan hanya menjadi kandidat add-on opsional. Terverifikasi lokal dan CI: 106 Worker test + 47 frontend test (153), lint/typecheck/format/build/secret scan hijau, fitur aktif sudah di-deploy ke production, dan demo publik frontend-only aktif.
 
 # CURRENT
 
-Sesi ini: **Phase 12 Open Source dan CI selesai**, mencakup hardening repo publik, legal/community files, GitHub Actions, dokumentasi setup lokal + Cloudflare dalam Bahasa Indonesia dan English, PDF teknis terpisah, serta panduan instalasi pemula step-by-step dengan PDF terpisah untuk kedua bahasa.
+Sesi ini: **demo publik frontend-only selesai dan deployed**, setelah Phase 12 Open Source dan CI. Demo memakai adapter in-memory, data dummy yang reset saat reload, serta deployment Cloudflare Static Assets terpisah tanpa D1, Workers AI, secret, cron, atau backend production.
 
 Keputusan dan hal penting:
 
@@ -28,7 +28,8 @@ Keputusan dan hal penting:
 - Migration `0005_telegram_delivery.sql`, `0006_import_jobs.sql`, `0007_web_push.sql`, dan `0008_disable_telegram_channel.sql` sudah diterapkan ke lokal, remote development, dan production. `0008` menormalkan channel aktif ke Dashboard/Web Push.
 - CSP/`_headers`: `img-src` + `blob:` untuk preview object URL struk; `Permissions-Policy: camera=(self)` untuk input kamera.
 - Phase 11 Import/Export: `src/routes/import-export.ts` + `src/services/{import,export}.ts`; export CSV per domain + Excel (papaparse, read-excel-file, write-excel-file, fflate); import CSV/Excel ber-job với preview/mapping/validasi/duplicate detection/atomic (`0006_import_jobs.sql`); UI `DataTransferPage.tsx` + `frontend/src/importExport.ts`.
-- Test: 106 Worker + 43 frontend = 149 (termasuk receipt-scan, web-push, receiptImage, webPush, import/export, notifikasi transaksi); lint/typecheck/format/build hijau. Smoke: health 200, endpoint diproteksi Access; Scan Struk sukses di production (preview sempat tidak tampil → fix CSS jadi full-width; respons invalid → schema jadi toleran via `normalizeReceiptDraft` + `.passthrough()`). Web Push belum di-smoke-test perangkat nyata; import/export belum diuji penuh dua arah di production.
+- Demo publik: `https://demo.rangkumin.dikadevit.my.id`, Worker `rangkumin-demo`, version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`. Scan Struk, Web Push, dan Import/Export dinonaktifkan; transaksi, tabungan, anggaran, pengingat, Trash, dan notifikasi disimulasikan di memori tab. Smoke root 200 dan `/api/me` hanya mengembalikan SPA HTML, sehingga tidak ada backend API pada origin demo.
+- Test: 106 Worker + 47 frontend = 153 (termasuk demo no-network, receipt-scan, web-push, receiptImage, webPush, import/export, notifikasi transaksi); lint/typecheck/format/build hijau. Smoke: health 200, endpoint diproteksi Access; Scan Struk sukses di production (preview sempat tidak tampil → fix CSS jadi full-width; respons invalid → schema jadi toleran via `normalizeReceiptDraft` + `.passthrough()`). Web Push belum di-smoke-test perangkat nyata; import/export belum diuji penuh dua arah di production.
 - Residual: smoke test user kedua, smoke Web Push di perangkat nyata, uji installability/offline reload, audit accessibility mendalam, frontend E2E test.
 
 Jangan memasukkan email atau identifier pribadi ke Git.
@@ -219,6 +220,7 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 - [x] Pasang Cloudflare Access dan Web Push secrets yang aktif.
 - [x] Deploy Worker + Static Assets.
 - [x] Hubungkan `rangkumin.dikadevit.my.id`, aktifkan Cloudflare Access, dan pasang scheduled triggers.
+- [x] Deploy demo publik frontend-only di `demo.rangkumin.dikadevit.my.id` tanpa binding backend.
 - [ ] Jalankan smoke test user kedua, PWA/offline, Web Push perangkat nyata, dan Import/Export production.
 - [ ] Selesaikan post-public security remediation dan aktifkan branch protection.
 

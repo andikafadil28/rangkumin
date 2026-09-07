@@ -5,6 +5,7 @@
 Aplikasi keuangan pasangan berbasis web/PWA untuk mencatat pemasukan, pengeluaran, tabungan, anggaran, pengingat, dan portabilitas data. Berjalan secara serverless di Cloudflare Workers + Static Assets dengan D1 sebagai source of truth.
 
 - Production resmi: <https://rangkumin.dikadevit.my.id> (akses privat untuk dua pengguna)
+- Demo publik: <https://demo.rangkumin.dikadevit.my.id> (data dummy, tanpa backend)
 - Lisensi core: [MIT](LICENSE)
 - Layanan setup/support: [Commercial Services](COMMERCIAL.md)
 - Donasi: <https://buymeacoffee.com/dikadev>
@@ -21,6 +22,23 @@ Aplikasi keuangan pasangan berbasis web/PWA untuk mencatat pemasukan, pengeluara
 - **Tampilan responsive** — mode Bersama/Saya dan tema Bersama, Tenang, atau Minimal.
 
 Google Sheets dan Telegram **belum tersedia** pada versi aktif. Keduanya hanya kandidat add-on/update opsional di masa depan.
+
+## Demo publik
+
+Demo memakai adapter in-memory di browser dan deployment Static Assets terpisah. Tidak ada binding D1, Workers AI, secret, cron, atau akses ke backend production. Perubahan transaksi, tabungan, anggaran, pengingat, dan notifikasi hanya bertahan pada tab aktif lalu kembali ke fixture awal saat halaman dimuat ulang.
+
+Scan Struk, Web Push, serta Import/Export sengaja dinonaktifkan. Jalankan mode yang sama secara lokal dengan:
+
+```bash
+npm run dev:demo
+```
+
+Build dan deployment demo menggunakan output serta konfigurasi terpisah:
+
+```bash
+npm run build:demo
+npm run deploy:demo
+```
 
 ## Dokumentasi setup
 
@@ -92,7 +110,7 @@ npm test
 npm run build
 ```
 
-Snapshot terakhir yang terverifikasi: **106 Worker test + 43 frontend test = 149 test**.
+Snapshot terakhir yang terverifikasi: **106 Worker test + 47 frontend test = 153 test**.
 
 PDF dapat diregenerasi dengan Chrome, Edge, atau Chromium:
 
@@ -112,6 +130,8 @@ frontend-tests/       Frontend tests
 docs/                 Panduan operasional dan setup bilingual
 scripts/              Provisioning, secret setup, dan PDF generator
 public/               Static build yang dilayani Worker
+dist-demo/             Output lokal demo (di-ignore Git)
+wrangler.demo.jsonc    Deployment Static Assets demo tanpa binding
 ```
 
 ## Status dan roadmap
