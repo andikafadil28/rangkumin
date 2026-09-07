@@ -35,7 +35,7 @@ Smoke: health 200, protected API → 302 Access, Scan Struk sukses di production
 - D1 = source of truth; Google Sheets hanya kandidat future update opsional tanpa timeline.
 - Login dua pengguna via Cloudflare Access; production hanya percaya JWT Access terverifikasi.
 - **Telegram tidak aktif**: kanal aktif Dashboard + Web Push; channel `notify_telegram` dan migration history dipertahankan sebagai kompatibilitas, sedangkan integrasi baru hanya roadmap opsional.
-- Migration `0008_disable_telegram_channel.sql` menormalkan preference Telegram historis ke Web Push dan mencegah notification dead record; sudah diterapkan lokal, remote menunggu approval.
+- Migration `0008_disable_telegram_channel.sql` menormalkan preference Telegram historis ke Web Push dan mencegah notification dead record; sudah diterapkan lokal, remote development, dan production.
 - Scan Struk hasilnya draft (konfirmasi manual); foto tidak disimpan di storage mana pun; pricing/quota Workers AI wajib dicek dari dokumentasi resmi terbaru.
 - Web Push delivery terpisah dari koneksi klien; fan-out reminder/budget memakai `Promise.allSettled` agar tidak memblok schedule.
 - PWA: offline snapshot + outbox untuk create transaksi; edit/hapus/Trash/tabungan/rencana online-only.
