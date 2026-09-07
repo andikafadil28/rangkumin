@@ -24,6 +24,17 @@ Google Sheets dan Telegram **belum tersedia** pada versi aktif. Keduanya hanya k
 
 ## Dokumentasi setup
 
+### Panduan pemula langkah demi langkah
+
+| Bahasa    | Markdown                                                        | PDF                                                                              |
+| --------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Indonesia | [Panduan instalasi pemula](docs/installation-beginner.id.md)    | [Unduh PDF pemula Indonesia](docs/pdf/rangkumin-installation-beginner-id.pdf)    |
+| English   | [Beginner installation guide](docs/installation-beginner.en.md) | [Download English beginner PDF](docs/pdf/rangkumin-installation-beginner-en.pdf) |
+
+Panduan pemula dimulai dari instalasi Node.js dan Git, menjalankan aplikasi lokal, konfigurasi Cloudflare klik per klik, sampai troubleshooting.
+
+### Panduan teknis
+
 | Bahasa    | Markdown                                     | PDF                                                     |
 | --------- | -------------------------------------------- | ------------------------------------------------------- |
 | Indonesia | [Setup lokal + Cloudflare](docs/setup.id.md) | [Unduh PDF Indonesia](docs/pdf/rangkumin-setup-id.pdf)  |

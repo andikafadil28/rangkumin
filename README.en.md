@@ -24,6 +24,17 @@ Google Sheets and Telegram are **not available** in the active release. They are
 
 ## Setup documentation
 
+### Step-by-step beginner guides
+
+| Language   | Markdown                                                        | PDF                                                                              |
+| ---------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| English    | [Beginner installation guide](docs/installation-beginner.en.md) | [Download English beginner PDF](docs/pdf/rangkumin-installation-beginner-en.pdf) |
+| Indonesian | [Panduan instalasi pemula](docs/installation-beginner.id.md)    | [Unduh PDF pemula Indonesia](docs/pdf/rangkumin-installation-beginner-id.pdf)    |
+
+The beginner guides start with installing Node.js and Git, continue through local usage and click-by-click Cloudflare configuration, and finish with troubleshooting.
+
+### Technical guides
+
 | Language   | Markdown                                     | PDF                                                     |
 | ---------- | -------------------------------------------- | ------------------------------------------------------- |
 | English    | [Local + Cloudflare setup](docs/setup.en.md) | [Download English PDF](docs/pdf/rangkumin-setup-en.pdf) |
