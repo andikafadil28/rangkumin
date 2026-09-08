@@ -90,6 +90,14 @@ function formatMoney(value: number, hidden: boolean) {
   return hidden ? "Rp ••••••" : money.format(value);
 }
 
+function LiveMoney({ value, hidden }: { value: number; hidden: boolean }) {
+  return (
+    <span key={`${value}:${hidden}`} className="live-money">
+      {formatMoney(value, hidden)}
+    </span>
+  );
+}
+
 function BrandMark() {
   return (
     <span className="brand-mark" aria-hidden="true">
@@ -124,19 +132,27 @@ function PersonCard({
         </div>
         <span className={`net-pill ${item.net < 0 ? "negative" : ""}`}>
           {item.net < 0 ? "−" : "+"}
-          {formatMoney(Math.abs(item.net), hidden)}
+          <LiveMoney value={Math.abs(item.net)} hidden={hidden} />
         </span>
       </div>
       <p className="balance-label">Saldo tunai</p>
-      <p className="person-balance">{formatMoney(balance, hidden)}</p>
+      <p className="person-balance">
+        <LiveMoney value={balance} hidden={hidden} />
+      </p>
       <div className="money-pair">
         <span>
           <i className="dot income" />
-          Masuk <b>{formatMoney(item.income, hidden)}</b>
+          Masuk
+          <b>
+            <LiveMoney value={item.income} hidden={hidden} />
+          </b>
         </span>
         <span>
           <i className="dot expense" />
-          Keluar <b>{formatMoney(item.expense, hidden)}</b>
+          Keluar
+          <b>
+            <LiveMoney value={item.expense} hidden={hidden} />
+          </b>
         </span>
       </div>
     </article>
@@ -210,14 +226,18 @@ function DashboardCharts({
             <i>
               <b style={{ width: `${(combined.income / flowMax) * 100}%` }} />
             </i>
-            <strong>{formatMoney(combined.income, hidden)}</strong>
+            <strong>
+              <LiveMoney value={combined.income} hidden={hidden} />
+            </strong>
           </div>
           <div>
             <span>Pengeluaran</span>
             <i>
               <b style={{ width: `${(combined.expense / flowMax) * 100}%` }} />
             </i>
-            <strong>{formatMoney(combined.expense, hidden)}</strong>
+            <strong>
+              <LiveMoney value={combined.expense} hidden={hidden} />
+            </strong>
           </div>
         </div>
       </article>
@@ -697,7 +717,10 @@ export function App() {
                     : "Langkah kalian bulan ini"}
                 </h2>
                 <p className="together-net">
-                  {formatMoney(data.summary.combined.net, balancesHidden)}
+                  <LiveMoney
+                    value={data.summary.combined.net}
+                    hidden={balancesHidden}
+                  />
                 </p>
                 <span className="together-caption">
                   {viewMode === "solo"
@@ -709,13 +732,19 @@ export function App() {
                 <div>
                   <span>Total masuk</span>
                   <b>
-                    {formatMoney(data.summary.combined.income, balancesHidden)}
+                    <LiveMoney
+                      value={data.summary.combined.income}
+                      hidden={balancesHidden}
+                    />
                   </b>
                 </div>
                 <div>
                   <span>Total keluar</span>
                   <b>
-                    {formatMoney(data.summary.combined.expense, balancesHidden)}
+                    <LiveMoney
+                      value={data.summary.combined.expense}
+                      hidden={balancesHidden}
+                    />
                   </b>
                 </div>
                 <div
