@@ -17,7 +17,7 @@
 
 **Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Mode warna otomatis/terang/gelap, filter transaksi lanjutan, dan Dashboard Insights sudah di-deploy ke production. GitHub Release terbaru tetap `v1.0.0` pada commit `fe79904`. Demo publik frontend-only tetap aktif sebagai Static Assets terpisah tanpa binding backend.
 
-Snapshot lokal terbaru: **113 Worker test + 65 frontend test = 178**; typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Production version `fe586f95-c7d1-421f-87a6-101bdc36e4b1`; health 200 dan origin tetap diproteksi Access. Demo production tetap version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`.
+Snapshot lokal terbaru: **113 Worker test + 65 frontend test = 178**; typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Production version `fe586f95-c7d1-421f-87a6-101bdc36e4b1`; health 200 dan origin tetap diproteksi Access. Demo production version `9088ed20-46d5-46a3-91f4-3035a09f4548`.
 
 Dokumentasi mencakup README bilingual, setup guide teknis Indonesia/English, dan panduan instalasi pemula step-by-step Indonesia/English; masing-masing panduan tersedia sebagai PDF terpisah.
 
