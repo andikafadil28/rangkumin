@@ -12,11 +12,11 @@ Identitas proyek:
 - Author: Andika Fadil (`@andikafadil28`).
 - Lisensi: core MIT, `Copyright (c) 2026 Andika Fadil`; layanan dan add-on komersial dapat memakai perjanjian terpisah.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda sebagai future update. Telegram runtime dihapus dan hanya menjadi kandidat add-on opsional. Snapshot lokal terbaru: 111 Worker test + 62 frontend test (173); typecheck, lint file perubahan, format, dan build hijau. Fitur aktif sebelumnya sudah di-deploy ke production dan demo publik frontend-only aktif; mode warna otomatis serta filter transaksi lanjutan masih menunggu deployment.
+- Status: Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda sebagai future update. Telegram runtime dihapus dan hanya menjadi kandidat add-on opsional. Snapshot lokal terbaru: 111 Worker test + 62 frontend test (173); typecheck, lint file perubahan, format, dan build hijau. Fitur aktif sudah di-deploy ke production dan demo publik frontend-only aktif.
 
 # CURRENT
 
-Sesi ini: **mode warna otomatis/terang/gelap dan filter transaksi lanjutan selesai diimplementasikan serta diverifikasi lokal, tetapi belum di-deploy**. Filter baru mencakup pencarian catatan, rentang tanggal, rentang nominal, sorting tanggal/nominal, reset, dukungan Trash, dan adapter demo. Tema Bersama/Tenang/Minimal tetap terpisah dari mode warna; default mode mengikuti perangkat dan bereaksi langsung saat preferensi OS berubah. Tidak ada migration baru. GitHub Release terbaru tetap `v1.0.0` pada commit `fe79904`. Production masih version `36b4df86-1f8f-4ddd-bc3f-7a6350e7e58a`; health 200 dan origin diproteksi Cloudflare Access.
+Sesi ini: **mode warna otomatis/terang/gelap dan filter transaksi lanjutan selesai diimplementasikan, diverifikasi, dan di-deploy ke production**. Filter baru mencakup pencarian catatan, rentang tanggal, rentang nominal, sorting tanggal/nominal, reset, dukungan Trash, dan adapter demo. Tema Bersama/Tenang/Minimal tetap terpisah dari mode warna; default mode mengikuti perangkat dan bereaksi langsung saat preferensi OS berubah. Tidak ada migration baru. GitHub Release terbaru tetap `v1.0.0` pada commit `fe79904`. Production version `5c47a6ce-9c1e-4e7b-bba1-7d98a9543583`; health 200 dan origin diproteksi Cloudflare Access.
 
 Keputusan dan hal penting:
 
@@ -35,7 +35,7 @@ Keputusan dan hal penting:
 - CSP/`_headers`: `img-src` + `blob:` untuk preview object URL struk; `Permissions-Policy: camera=(self)` untuk input kamera.
 - Phase 11 Import/Export: `src/routes/import-export.ts` + `src/services/{import,export}.ts`; export CSV per domain + Excel (papaparse, read-excel-file, write-excel-file, fflate); import CSV/Excel ber-job với preview/mapping/validasi/duplicate detection/atomic (`0006_import_jobs.sql`); UI `DataTransferPage.tsx` + `frontend/src/importExport.ts`.
 - Demo publik: `https://demo.rangkumin.dikadevit.my.id`, Worker `rangkumin-demo`, version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`. Scan Struk, Web Push, dan Import/Export dinonaktifkan; transaksi, tabungan, anggaran, pengingat, Trash, dan notifikasi disimulasikan di memori tab. Smoke root 200 dan `/api/me` hanya mengembalikan SPA HTML, sehingga tidak ada backend API pada origin demo.
-- Test lokal terbaru: 111 Worker + 62 frontend = 173 (termasuk mode warna system/manual, serialisasi filter lanjutan, validasi rentang/sort, escaping LIKE, adapter demo, variasi respons receipt AI, label detail transaksi, web-push, receiptImage, dan import/export); typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Mode warna/filter baru belum di-smoke-test visual di perangkat nyata atau production. Web Push belum di-smoke-test perangkat nyata; import/export belum diuji penuh dua arah di production.
+- Test lokal terbaru: 111 Worker + 62 frontend = 173 (termasuk mode warna system/manual, serialisasi filter lanjutan, validasi rentang/sort, escaping LIKE, adapter demo, variasi respons receipt AI, label detail transaksi, web-push, receiptImage, dan import/export); typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Mode warna/filter baru sudah di-deploy tetapi belum di-smoke-test visual di perangkat nyata. Web Push belum di-smoke-test perangkat nyata; import/export belum diuji penuh dua arah di production.
 - Residual: smoke test user kedua, smoke Web Push di perangkat nyata, uji installability/offline reload, audit accessibility mendalam, frontend E2E test.
 
 Jangan memasukkan email atau identifier pribadi ke Git.

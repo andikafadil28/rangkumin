@@ -15,9 +15,9 @@
 
 # CURRENT
 
-**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Mode warna otomatis/terang/gelap dan filter transaksi lanjutan sudah selesai serta terverifikasi lokal, tetapi belum di-deploy. GitHub Release terbaru tetap `v1.0.0` pada commit `fe79904`. Demo publik frontend-only tetap aktif sebagai Static Assets terpisah tanpa binding backend.
+**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Mode warna otomatis/terang/gelap dan filter transaksi lanjutan sudah selesai, terverifikasi, dan di-deploy ke production. GitHub Release terbaru tetap `v1.0.0` pada commit `fe79904`. Demo publik frontend-only tetap aktif sebagai Static Assets terpisah tanpa binding backend.
 
-Snapshot lokal terbaru: **111 Worker test + 62 frontend test = 173**; typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Production masih version `36b4df86-1f8f-4ddd-bc3f-7a6350e7e58a`; mode warna/filter baru belum di-deploy. Demo production tetap version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`.
+Snapshot lokal terbaru: **111 Worker test + 62 frontend test = 173**; typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Production version `5c47a6ce-9c1e-4e7b-bba1-7d98a9543583`; health 200 dan origin tetap diproteksi Access. Demo production tetap version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`.
 
 Dokumentasi mencakup README bilingual, setup guide teknis Indonesia/English, dan panduan instalasi pemula step-by-step Indonesia/English; masing-masing panduan tersedia sebagai PDF terpisah.
 
@@ -35,12 +35,12 @@ Fitur yang sudah ada di production:
 - **Tabungan/anggaran/pengingat**: pos pribadi/bersama + transfer atomik; budget bulanan + custom threshold; reminder sekali/interval/harian/mingguan/bulanan dengan snooze & complete.
 - Auth: Cloudflare Access (JWT diverifikasi) untuk dua pengguna; semua mutation guarded ownership.
 
-Fitur lokal yang menunggu deployment:
+Fitur terbaru di production:
 
 - **Mode warna**: pilihan System/Terang/Gelap terpisah dari tema Bersama/Tenang/Minimal, bootstrap anti-flash, listener `prefers-color-scheme`, dan palette dark per tema.
 - **Filter transaksi lanjutan**: pencarian catatan, rentang tanggal dan nominal, sorting tanggal/nominal, reset filter, validasi client/server, dukungan Trash serta demo. Query search memakai bind parameter dan escaping wildcard LIKE.
 
-Smoke production terakhir: health 200 dan protected origin → 302 Access. Belum di-smoke-test: mode warna/filter baru di perangkat nyata, Web Push perangkat nyata, user kedua, installability/offline reload, E2E frontend, audit accessibility mendalam.
+Smoke production terakhir: health 200 dan protected origin → 302 Access. Belum di-smoke-test: mode warna/filter baru secara visual di perangkat nyata, Web Push perangkat nyata, user kedua, installability/offline reload, E2E frontend, audit accessibility mendalam.
 
 # DECISIONS
 
