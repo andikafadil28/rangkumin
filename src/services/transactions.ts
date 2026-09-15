@@ -182,6 +182,14 @@ export type TransactionSummary = {
   };
 };
 
+export type TransactionSummaryTotals = {
+  income: number;
+  incomeCount: number;
+  expense: number;
+  expenseCount: number;
+  net: number;
+};
+
 type TypeTotalRow = {
   owner_user_id: string;
   type: "income" | "expense";
@@ -671,7 +679,7 @@ export async function summarizeTransactions(
       `SELECT c.id, c.name, c.type, SUM(t.amount) AS total, COUNT(*) AS count
        FROM transactions t
        JOIN categories c ON c.id = t.category_id${whereSql}
-         AND t.type IN ('income', 'expense')
+         AND t.type = 'expense'
        GROUP BY c.id
        ORDER BY total DESC`,
     )
@@ -740,5 +748,57 @@ export async function summarizeTransactions(
         count: row.count,
       })),
     },
+  };
+}
+
+export async function summarizeTransactionTotals(
+  database: D1Database,
+  filters: SummaryFilter = {},
+): Promise<TransactionSummaryTotals> {
+  const conditions = [
+    "t.deleted_at IS NULL",
+    "t.type IN ('income', 'expense')",
+  ];
+  const parameters: string[] = [];
+
+  if (filters.ownerUserId) {
+    conditions.push("t.owner_user_id = ?" + (parameters.length + 1));
+    parameters.push(filters.ownerUserId);
+  }
+  if (filters.dateFrom) {
+    conditions.push("t.transaction_date >= ?" + (parameters.length + 1));
+    parameters.push(filters.dateFrom);
+  }
+  if (filters.dateTo) {
+    conditions.push("t.transaction_date <= ?" + (parameters.length + 1));
+    parameters.push(filters.dateTo);
+  }
+
+  const row = await database
+    .prepare(
+      `SELECT
+         COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END), 0) AS income,
+         SUM(CASE WHEN t.type = 'income' THEN 1 ELSE 0 END) AS income_count,
+         COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0) AS expense,
+         SUM(CASE WHEN t.type = 'expense' THEN 1 ELSE 0 END) AS expense_count
+       FROM transactions t
+       WHERE ${conditions.join(" AND ")}`,
+    )
+    .bind(...parameters)
+    .first<{
+      income: number;
+      income_count: number;
+      expense: number;
+      expense_count: number;
+    }>();
+
+  const income = row?.income ?? 0;
+  const expense = row?.expense ?? 0;
+  return {
+    income,
+    incomeCount: row?.income_count ?? 0,
+    expense,
+    expenseCount: row?.expense_count ?? 0,
+    net: income - expense,
   };
 }

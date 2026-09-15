@@ -8,7 +8,7 @@ import {
 import { listCategoriesQuerySchema } from "../src/schemas/category";
 import type { TransactionRow } from "../src/services/transactions";
 import type { AppBindings, AppEnv } from "../src/types";
-import { getCurrentMonthRange } from "../src/utils/date";
+import { getCurrentMonthRange, getPreviousMonthRange } from "../src/utils/date";
 
 type FakeResponse = {
   all?: Record<string, unknown>[];
@@ -83,6 +83,13 @@ function transactionRow(): TransactionRow {
 }
 
 describe("transaction routes", () => {
+  it("menghitung bulan pembanding melewati pergantian tahun", () => {
+    expect(getPreviousMonthRange("2026-01-01")).toEqual({
+      from: "2025-12-01",
+      to: "2025-12-31",
+    });
+  });
+
   it("membuat transaksi dengan Idempotency-Key", async () => {
     const row = transactionRow();
     const database = createDatabase([
@@ -233,6 +240,10 @@ describe("transaction routes", () => {
         { userId: "user-2", displayName: "Dara" },
       ],
       combined: { income: 0, expense: 0, net: 0 },
+      comparison: {
+        period: getPreviousMonthRange(getCurrentMonthRange().from),
+        combined: { income: 0, expense: 0, net: 0 },
+      },
     });
   });
 

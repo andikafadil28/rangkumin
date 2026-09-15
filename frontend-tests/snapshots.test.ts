@@ -23,6 +23,7 @@ const dashboard = {
     period: { from: "2026-09-01", to: "2026-09-30" },
     byUser: [],
     combined: { income: 0, expense: 0, net: 0, categories: [] },
+    comparison: null,
   },
   savings: { cashBalances: [], goals: [] },
   transactions: [],

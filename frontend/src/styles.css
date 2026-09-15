@@ -132,11 +132,13 @@
   background: var(--forest-deep);
 }
 :root[data-theme="minimal"] .together-card::after,
-:root[data-theme="minimal"] .savings-hero::after {
+:root[data-theme="minimal"] .savings-hero::after,
+:root[data-theme="minimal"] .insight-panel::after {
   display: none;
 }
 :root[data-theme="minimal"] .person-card,
 :root[data-theme="minimal"] .chart-card,
+:root[data-theme="minimal"] .insight-panel,
 :root[data-theme="minimal"] .saving-goal,
 :root[data-theme="minimal"] .budget-row,
 :root[data-theme="minimal"] .reminder-card,
@@ -2496,6 +2498,96 @@ h3 {
   color: var(--muted);
   font-size: 0.68rem;
 }
+.insight-panel {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 0.8rem;
+  padding: 1.35rem;
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  background: linear-gradient(
+    115deg,
+    color-mix(in srgb, var(--sage) 32%, var(--surface)),
+    var(--surface) 58%
+  );
+}
+.insight-panel::after {
+  position: absolute;
+  top: -4rem;
+  right: -3rem;
+  width: 10rem;
+  height: 10rem;
+  border: 1.5rem solid color-mix(in srgb, var(--rose) 10%, transparent);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+.insight-heading {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.insight-heading h2 {
+  margin-top: 0.2rem;
+  font-size: 1rem;
+}
+.insight-heading > span {
+  color: var(--muted);
+  font-size: 0.62rem;
+}
+.insight-lead {
+  position: relative;
+  z-index: 1;
+  max-width: 42rem;
+  margin: 0.8rem 0 1rem;
+  font-family: Georgia, serif;
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  line-height: 1.35;
+}
+.insight-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.9fr;
+  gap: 0.65rem;
+}
+.insight-grid article {
+  display: grid;
+  min-width: 0;
+  gap: 0.35rem;
+  padding: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+}
+.insight-grid article > span {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 750;
+}
+.insight-grid strong {
+  overflow: hidden;
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.insight-grid small {
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+.insight-grid small.positive {
+  color: var(--income);
+}
+.insight-grid small.negative {
+  color: var(--expense);
+}
+.category-insight {
+  border-color: color-mix(in srgb, var(--forest) 28%, var(--line)) !important;
+}
 .settings-page {
   max-width: 58rem;
   margin-inline: auto;
@@ -3221,6 +3313,14 @@ h3 {
 }
 
 @media (max-width: 700px) {
+  .insight-grid {
+    grid-template-columns: 1fr;
+  }
+  .insight-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
   .demo-banner {
     align-items: flex-start;
     flex-direction: column;

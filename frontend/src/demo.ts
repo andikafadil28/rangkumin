@@ -41,6 +41,17 @@ function monthPeriod() {
   };
 }
 
+function previousMonthPeriod() {
+  const now = new Date();
+  const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const year = previous.getFullYear();
+  const month = previous.getMonth();
+  return {
+    from: `${year}-${String(month + 1).padStart(2, "0")}-01`,
+    to: `${year}-${String(month + 1).padStart(2, "0")}-${String(new Date(year, month + 1, 0).getDate()).padStart(2, "0")}`,
+  };
+}
+
 function clone<T>(value: T): T {
   return structuredClone(value);
 }
@@ -364,6 +375,11 @@ function summary(owner?: string): Summary {
   }
   const income = byUser.reduce((total, item) => total + item.income, 0);
   const expense = byUser.reduce((total, item) => total + item.expense, 0);
+  const previous = owner
+    ? owner === users[0]!.id
+      ? { income: 8_200_000, expense: 1_050_000, net: 7_150_000 }
+      : { income: 7_000_000, expense: 920_000, net: 6_080_000 }
+    : { income: 15_200_000, expense: 1_970_000, net: 13_230_000 };
   return {
     period,
     byUser,
@@ -374,6 +390,10 @@ function summary(owner?: string): Summary {
       categories: [...categoryTotals.values()].sort(
         (a, b) => b.total - a.total,
       ),
+    },
+    comparison: {
+      period: previousMonthPeriod(),
+      combined: previous,
     },
   };
 }

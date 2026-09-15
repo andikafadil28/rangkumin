@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AuthRequiredError } from "./api";
-import type { SummaryItem, Transaction, getDashboard } from "./api";
+import type { Summary, SummaryItem, Transaction, getDashboard } from "./api";
 import { TransactionsPage } from "./TransactionsPage";
 import { SavingsPage } from "./SavingsPage";
 import { PlansPage } from "./PlansPage";
@@ -20,6 +20,7 @@ import {
   themeColor,
 } from "./theme";
 import type { ColorPreference, Theme } from "./theme";
+import { changeDescription, percentageChange } from "./dashboardInsights";
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>;
 type Page =
@@ -275,6 +276,108 @@ function DashboardCharts({
           <div className="chart-empty">Belum cukup data bulan ini.</div>
         )}
       </article>
+    </section>
+  );
+}
+
+function DashboardInsights({
+  summary,
+  hidden,
+  solo,
+}: {
+  summary: Summary;
+  hidden: boolean;
+  solo: boolean;
+}) {
+  const previous = summary.comparison?.combined;
+  const topCategory = summary.combined.categories[0];
+  const expenseChange = previous
+    ? percentageChange(summary.combined.expense, previous.expense)
+    : null;
+  const incomeChange = previous
+    ? percentageChange(summary.combined.income, previous.income)
+    : null;
+  const categoryShare =
+    topCategory && summary.combined.expense
+      ? Math.round((topCategory.total / summary.combined.expense) * 100)
+      : null;
+  const headline = previous
+    ? changeDescription(
+        "Pengeluaran",
+        summary.combined.expense,
+        previous.expense,
+      )
+    : "Insight akan muncul setelah ada data bulan sebelumnya.";
+
+  return (
+    <section className="insight-panel" aria-labelledby="insight-title">
+      <div className="insight-heading">
+        <div>
+          <p className="eyebrow">Dibanding bulan lalu</p>
+          <h2 id="insight-title">Yang perlu diperhatikan</h2>
+        </div>
+        {summary.comparison && (
+          <span>{formatPeriod(summary.comparison.period.from)}</span>
+        )}
+      </div>
+      <p className="insight-lead">{headline}</p>
+      <div className="insight-grid">
+        <article>
+          <span>Pengeluaran {solo ? "pribadi" : "bersama"}</span>
+          <strong>
+            <LiveMoney value={summary.combined.expense} hidden={hidden} />
+          </strong>
+          <small
+            className={
+              expenseChange === null || expenseChange === 0
+                ? "neutral"
+                : expenseChange < 0
+                  ? "positive"
+                  : "negative"
+            }
+          >
+            {previous
+              ? changeDescription(
+                  "Pengeluaran",
+                  summary.combined.expense,
+                  previous.expense,
+                )
+              : "Belum ada data pembanding."}
+          </small>
+        </article>
+        <article>
+          <span>Pemasukan {solo ? "pribadi" : "bersama"}</span>
+          <strong>
+            <LiveMoney value={summary.combined.income} hidden={hidden} />
+          </strong>
+          <small
+            className={
+              incomeChange === null || incomeChange === 0
+                ? "neutral"
+                : incomeChange > 0
+                  ? "positive"
+                  : "negative"
+            }
+          >
+            {previous
+              ? changeDescription(
+                  "Pemasukan",
+                  summary.combined.income,
+                  previous.income,
+                )
+              : "Belum ada data pembanding."}
+          </small>
+        </article>
+        <article className="category-insight">
+          <span>Kategori terbesar</span>
+          <strong>{topCategory?.name ?? "Belum ada"}</strong>
+          <small>
+            {topCategory && categoryShare !== null
+              ? `${categoryShare}% dari total pengeluaran bulan ini.`
+              : "Belum ada pengeluaran berkategori."}
+          </small>
+        </article>
+      </div>
     </section>
   );
 }
@@ -787,6 +890,12 @@ export function App() {
             </section>
 
             <DashboardCharts data={data} hidden={balancesHidden} />
+
+            <DashboardInsights
+              summary={data.summary}
+              hidden={balancesHidden}
+              solo={viewMode === "solo"}
+            />
 
             <div className="content-grid">
               <section className="panel" aria-labelledby="saving-title">

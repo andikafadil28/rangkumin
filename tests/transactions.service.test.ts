@@ -11,6 +11,7 @@ import {
   notifyTransactionCreated,
   purgeTransaction,
   softDeleteTransaction,
+  summarizeTransactionTotals,
   summarizeTransactions,
   updateTransaction,
   type TransactionRow,
@@ -330,13 +331,6 @@ describe("summarizeTransactions", () => {
               total: 1500000,
               count: 3,
             },
-            {
-              id: "income-default-1",
-              name: "Gaji",
-              type: "income",
-              total: 10000000,
-              count: 3,
-            },
           ],
         },
       },
@@ -379,7 +373,49 @@ describe("summarizeTransactions", () => {
     expect(result.combined.income).toBe(10000000);
     expect(result.combined.expense).toBe(1500000);
     expect(result.combined.net).toBe(8500000);
-    expect(result.combined.categories).toHaveLength(2);
+    expect(result.combined.categories).toEqual([
+      expect.objectContaining({
+        categoryId: "expense-default-1",
+        name: "Makanan & Minuman",
+      }),
+    ]);
+  });
+});
+
+describe("summarizeTransactionTotals", () => {
+  it("menghitung total periode pembanding dengan satu query", async () => {
+    const database = createFakeDatabase([
+      {
+        match: (sql) => sql.includes("SUM(CASE WHEN t.type = 'income'"),
+        response: {
+          first: {
+            income: 5_000_000,
+            income_count: 1,
+            expense: 1_250_000,
+            expense_count: 3,
+          },
+        },
+      },
+    ]);
+
+    await expect(
+      summarizeTransactionTotals(database, {
+        ownerUserId: "user-1",
+        dateFrom: "2026-08-01",
+        dateTo: "2026-08-31",
+      }),
+    ).resolves.toEqual({
+      income: 5_000_000,
+      incomeCount: 1,
+      expense: 1_250_000,
+      expenseCount: 3,
+      net: 3_750_000,
+    });
+    expect(database.calls[0]!.bind).toEqual([
+      "user-1",
+      "2026-08-01",
+      "2026-08-31",
+    ]);
   });
 });
 

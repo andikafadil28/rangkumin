@@ -17,11 +17,12 @@ import {
   restoreTransaction,
   softDeleteTransaction,
   summarizeTransactions,
+  summarizeTransactionTotals,
   updateTransaction,
 } from "../services/transactions";
 import { deliverWebPushNotifications } from "../services/web-push";
 import type { AppEnv } from "../types";
-import { getCurrentMonthRange } from "../utils/date";
+import { getCurrentMonthRange, getPreviousMonthRange } from "../utils/date";
 
 export const transactionRoutes = new Hono<AppEnv>();
 
@@ -241,13 +242,31 @@ transactionQueryRoutes.get("/summary", async (context) => {
     const defaultPeriod = getCurrentMonthRange();
     const dateFrom = query.from ?? (query.to ? undefined : defaultPeriod.from);
     const dateTo = query.to ?? (query.from ? undefined : defaultPeriod.to);
-    const summary = await summarizeTransactions(context.env.DB, {
-      ownerUserId: query.owner,
-      dateFrom,
-      dateTo,
-    });
+    const previousPeriod =
+      dateFrom && dateTo ? getPreviousMonthRange(dateFrom) : null;
+    const [summary, previousTotals] = await Promise.all([
+      summarizeTransactions(context.env.DB, {
+        ownerUserId: query.owner,
+        dateFrom,
+        dateTo,
+      }),
+      previousPeriod
+        ? summarizeTransactionTotals(context.env.DB, {
+            ownerUserId: query.owner,
+            dateFrom: previousPeriod.from,
+            dateTo: previousPeriod.to,
+          })
+        : Promise.resolve(null),
+    ]);
 
-    return context.json({ period: { from: dateFrom, to: dateTo }, ...summary });
+    return context.json({
+      period: { from: dateFrom, to: dateTo },
+      ...summary,
+      comparison:
+        previousPeriod && previousTotals
+          ? { period: previousPeriod, combined: previousTotals }
+          : null,
+    });
   } catch (error) {
     return respondWithError(context, error);
   }

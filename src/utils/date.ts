@@ -22,3 +22,31 @@ export function getCurrentMonthRange(
     to: `${year}-${monthText}-${String(lastDay).padStart(2, "0")}`,
   };
 }
+
+export function getPreviousMonthRange(monthStart: string): {
+  from: string;
+  to: string;
+} {
+  const [year, month] = monthStart.split("-").map(Number);
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    month! < 1 ||
+    month! > 12
+  ) {
+    throw new Error("Gagal menentukan periode bulan sebelumnya.");
+  }
+
+  const previous = new Date(Date.UTC(year!, month! - 2, 1));
+  const previousYear = previous.getUTCFullYear();
+  const previousMonth = previous.getUTCMonth() + 1;
+  const lastDay = new Date(
+    Date.UTC(previousYear, previousMonth, 0),
+  ).getUTCDate();
+  const monthText = String(previousMonth).padStart(2, "0");
+
+  return {
+    from: `${previousYear}-${monthText}-01`,
+    to: `${previousYear}-${monthText}-${String(lastDay).padStart(2, "0")}`,
+  };
+}

@@ -15,6 +15,10 @@ export type Summary = {
   combined: SummaryTotals & {
     categories: Array<{ categoryId: string; name: string; total: number }>;
   };
+  comparison: {
+    period: { from: string; to: string };
+    combined: SummaryTotals;
+  } | null;
 };
 export type SavingsGoal = {
   id: string;
