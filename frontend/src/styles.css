@@ -1084,11 +1084,33 @@ h3 {
 }
 .transaction-ledger > ul > li {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.9rem;
   min-height: 5.2rem;
   border-bottom: 1px solid var(--line);
+}
+.transaction-detail-trigger {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
+  min-height: 4.5rem;
+  gap: 0.9rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.8rem;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+.transaction-detail-trigger:hover {
+  background: var(--surface-soft);
+}
+.transaction-detail-trigger:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
 }
 .ledger-icon {
   display: grid;
@@ -1129,11 +1151,11 @@ h3 {
   font-size: 0.58rem;
   font-style: normal;
 }
-.transaction-ledger li > strong {
+.transaction-detail-trigger > strong {
   font-size: 0.8rem;
   white-space: nowrap;
 }
-.transaction-ledger li > button {
+.transaction-ledger li > button:not(.transaction-detail-trigger) {
   width: 2.4rem;
   height: 2.4rem;
   border: 0;
@@ -1142,10 +1164,12 @@ h3 {
   background: transparent;
   cursor: pointer;
 }
-.transaction-ledger li > button:hover:not(:disabled) {
+.transaction-ledger
+  li
+  > button:not(.transaction-detail-trigger):hover:not(:disabled) {
   background: var(--surface-soft);
 }
-.transaction-ledger li > button:disabled {
+.transaction-ledger li > button:not(.transaction-detail-trigger):disabled {
   cursor: not-allowed;
   opacity: 0.35;
 }
@@ -1233,6 +1257,71 @@ h3 {
 }
 .transaction-actions > button:not(.secondary-button):hover {
   background: var(--surface-soft);
+}
+.transaction-detail-dialog {
+  width: min(calc(100% - 2rem), 30rem);
+  max-height: min(90vh, 42rem);
+  overflow-y: auto;
+  padding: 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.transaction-detail-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+.transaction-detail-heading h2 {
+  margin-top: 0.15rem;
+  font-size: 1.25rem;
+}
+.transaction-detail-heading > button {
+  width: 2.3rem;
+  height: 2.3rem;
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  background: var(--surface-soft);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+.transaction-detail-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0 0 1.2rem;
+}
+.transaction-detail-list > div {
+  min-width: 0;
+  padding: 0.8rem;
+  border-radius: 0.75rem;
+  background: var(--surface-soft);
+}
+.transaction-detail-list dt {
+  margin-bottom: 0.25rem;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+.transaction-detail-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+.transaction-detail-description {
+  grid-column: 1 / -1;
+}
+.transaction-detail-description dd {
+  white-space: pre-wrap;
+}
+.transaction-detail-dialog > .primary-button {
+  width: 100%;
 }
 .confirm-backdrop {
   place-items: center;
@@ -3155,20 +3244,32 @@ h3 {
     padding-inline: 0.9rem;
   }
   .transaction-ledger > ul > li {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.65rem;
     padding-block: 0.7rem;
   }
-  .transaction-ledger li > button {
+  .transaction-detail-trigger {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.65rem;
+  }
+  .transaction-ledger li > button:not(.transaction-detail-trigger) {
     display: block;
   }
-  .transaction-ledger li > strong {
+  .transaction-detail-trigger > strong {
     align-self: start;
     padding-top: 0.55rem;
   }
   .trash-actions {
-    grid-column: 2 / -1;
+    grid-column: 1 / -1;
     grid-row: 2;
+  }
+  .transaction-detail-dialog {
+    width: 100%;
+    max-height: 88vh;
+    align-self: end;
+    padding: 1.3rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
+    border-width: 1px 0 0;
+    border-radius: 1.4rem 1.4rem 0 0;
   }
   .transaction-view-heading {
     align-items: flex-start;

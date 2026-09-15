@@ -83,6 +83,17 @@ function displayMoney(value: number, hidden: boolean) {
   return hidden ? "Rp ••••••" : money.format(value);
 }
 
+export function transactionTypeLabel(type: Transaction["type"]) {
+  const labels: Record<Transaction["type"], string> = {
+    income: "Pemasukan",
+    expense: "Pengeluaran",
+    saving_deposit: "Setoran tabungan",
+    saving_withdrawal: "Penarikan tabungan",
+    saving_transfer: "Transfer tabungan",
+  };
+  return labels[type];
+}
+
 type TransactionType = "income" | "expense";
 type ReceiptScanResult = {
   draft: {
@@ -557,6 +568,87 @@ function ConfirmationDialog({
   );
 }
 
+function TransactionDetailDialog({
+  transaction,
+  mine,
+  hidden,
+  onClose,
+}: {
+  transaction: Transaction;
+  mine: boolean;
+  hidden: boolean;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div className="dialog-backdrop action-backdrop" onMouseDown={onClose}>
+      <section
+        className="transaction-detail-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="transaction-detail-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="transaction-detail-heading">
+          <div>
+            <p className="eyebrow">Riwayat transaksi</p>
+            <h2 id="transaction-detail-title">Detail transaksi</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Tutup detail">
+            ×
+          </button>
+        </div>
+        <dl className="transaction-detail-list">
+          <div>
+            <dt>Jenis</dt>
+            <dd>{transactionTypeLabel(transaction.type)}</dd>
+          </div>
+          <div>
+            <dt>Nominal</dt>
+            <dd>{displayMoney(transaction.amount, hidden)}</dd>
+          </div>
+          <div>
+            <dt>Tanggal</dt>
+            <dd>
+              {shortDate.format(
+                new Date(`${transaction.transactionDate}T12:00:00`),
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Pemilik</dt>
+            <dd>{mine ? "Milikmu" : "Milik pasangan"}</dd>
+          </div>
+          <div>
+            <dt>Kategori</dt>
+            <dd>{transaction.category?.name ?? "Tidak ada kategori"}</dd>
+          </div>
+          <div className="transaction-detail-description">
+            <dt>Catatan</dt>
+            <dd>{transaction.description ?? "Tidak ada catatan."}</dd>
+          </div>
+          {transaction.deletedAt && (
+            <div>
+              <dt>Status</dt>
+              <dd>Berada di Trash</dd>
+            </div>
+          )}
+        </dl>
+        <button className="primary-button" type="button" onClick={onClose}>
+          Tutup
+        </button>
+      </section>
+    </div>
+  );
+}
+
 export function TransactionsPage({
   userId,
   initialCategories,
@@ -597,6 +689,7 @@ export function TransactionsPage({
   const [stale, setStale] = useState(false);
   const [outboxItems, setOutboxItems] = useState<TransactionOutboxItem[]>([]);
   const [view, setView] = useState<"active" | "trashed">("active");
+  const [detail, setDetail] = useState<Transaction | null>(null);
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [confirmation, setConfirmation] = useState<{
@@ -727,6 +820,7 @@ export function TransactionsPage({
   function changeView(next: "active" | "trashed") {
     setView(next);
     setOffset(0);
+    setDetail(null);
     setSelected(null);
   }
 
@@ -921,35 +1015,42 @@ export function TransactionsPage({
               const tone = saving ? "saving" : item.type;
               return (
                 <li key={item.id}>
-                  <span className={`ledger-icon ${tone}`}>
-                    {saving ? "◎" : item.type === "income" ? "↙" : "↗"}
-                  </span>
-                  <span className="ledger-copy">
-                    <b>
-                      {item.description ||
-                        item.category?.name ||
-                        "Mutasi tabungan"}
-                    </b>
-                    <small>
-                      {mine ? "Milikmu" : "Milik pasangan"} ·{" "}
-                      {shortDate.format(
-                        new Date(`${item.transactionDate}T12:00:00`),
-                      )}
-                    </small>
-                    {item.category && <em>{item.category.name}</em>}
-                  </span>
-                  <strong
-                    className={
-                      saving
-                        ? ""
-                        : item.type === "income"
-                          ? "positive"
-                          : "negative"
-                    }
+                  <button
+                    className="transaction-detail-trigger"
+                    type="button"
+                    onClick={() => setDetail(item)}
+                    aria-label={`Lihat detail ${item.description || item.category?.name || "transaksi"}`}
                   >
-                    {saving ? "" : item.type === "income" ? "+" : "−"}
-                    {displayMoney(item.amount, hidden)}
-                  </strong>
+                    <span className={`ledger-icon ${tone}`}>
+                      {saving ? "◎" : item.type === "income" ? "↙" : "↗"}
+                    </span>
+                    <span className="ledger-copy">
+                      <b>
+                        {item.description ||
+                          item.category?.name ||
+                          "Mutasi tabungan"}
+                      </b>
+                      <small>
+                        {mine ? "Milikmu" : "Milik pasangan"} ·{" "}
+                        {shortDate.format(
+                          new Date(`${item.transactionDate}T12:00:00`),
+                        )}
+                      </small>
+                      {item.category && <em>{item.category.name}</em>}
+                    </span>
+                    <strong
+                      className={
+                        saving
+                          ? ""
+                          : item.type === "income"
+                            ? "positive"
+                            : "negative"
+                      }
+                    >
+                      {saving ? "" : item.type === "income" ? "+" : "−"}
+                      {displayMoney(item.amount, hidden)}
+                    </strong>
+                  </button>
                   {view === "active" ? (
                     <button
                       type="button"
@@ -1034,6 +1135,14 @@ export function TransactionsPage({
           online={online && !stale}
           onClose={closeForm}
           onSaved={savedTransaction}
+        />
+      )}
+      {detail && (
+        <TransactionDetailDialog
+          transaction={detail}
+          mine={detail.ownerUserId === userId}
+          hidden={hidden}
+          onClose={() => setDetail(null)}
         />
       )}
       {selected && (

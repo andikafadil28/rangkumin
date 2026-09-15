@@ -336,7 +336,13 @@ function summary(owner?: string): Summary {
       const expense = owned
         .filter((item) => item.type === "expense")
         .reduce((total, item) => total + item.amount, 0);
-      return { userId: user.id, income, expense, net: income - expense };
+      return {
+        userId: user.id,
+        displayName: user.displayName,
+        income,
+        expense,
+        net: income - expense,
+      };
     });
   const categoryTotals = new Map<
     string,

@@ -192,7 +192,12 @@ describe("transaction routes", () => {
     const database = createDatabase([
       {
         match: (sql) => sql.includes("FROM users"),
-        response: { all: [{ id: "user-1" }, { id: "user-2" }] },
+        response: {
+          all: [
+            { id: "user-1", display_name: "Ari" },
+            { id: "user-2", display_name: "Dara" },
+          ],
+        },
       },
     ]);
     const { environment, testApp } = createTestApp(database);
@@ -201,6 +206,10 @@ describe("transaction routes", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       period: getCurrentMonthRange(),
+      byUser: [
+        { userId: "user-1", displayName: "Ari" },
+        { userId: "user-2", displayName: "Dara" },
+      ],
       combined: { income: 0, expense: 0, net: 0 },
     });
   });

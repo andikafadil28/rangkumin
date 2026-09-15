@@ -3,11 +3,12 @@ import { DEMO_MODE } from "./demoMode";
 export type User = { id: string; displayName: string };
 export type SummaryItem = {
   userId: string;
+  displayName: string;
   income: number;
   expense: number;
   net: number;
 };
-type SummaryTotals = Omit<SummaryItem, "userId">;
+type SummaryTotals = Omit<SummaryItem, "userId" | "displayName">;
 export type Summary = {
   period: { from: string; to: string };
   byUser: SummaryItem[];

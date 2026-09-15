@@ -122,13 +122,13 @@ function PersonCard({
     <article className={`person-card ${current ? "is-current" : ""}`}>
       <div className="person-head">
         <span className="avatar" aria-hidden="true">
-          {current ? "K" : "P"}
+          {item.displayName.charAt(0).toUpperCase()}
         </span>
         <div>
           <span className="quiet-label">
             {current ? "Milikmu" : "Pasangan"}
           </span>
-          <h3>{current ? "Kamu" : "Dia"}</h3>
+          <h3>{item.displayName}</h3>
         </div>
         <span className={`net-pill ${item.net < 0 ? "negative" : ""}`}>
           {item.net < 0 ? "−" : "+"}

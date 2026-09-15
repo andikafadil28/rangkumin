@@ -152,6 +152,23 @@ describe("receipt scan service", () => {
     );
   });
 
+  it("mencoba sekali lagi ketika respons model pertama malformed", async () => {
+    const run = vi
+      .fn()
+      .mockResolvedValueOnce({ response: "not-json" })
+      .mockResolvedValueOnce({
+        response: '{"draft":{"amount":25000,"category_key":"category_1"}}',
+      });
+
+    await expect(
+      scanReceipt({ run } as unknown as Ai, png(), [category]),
+    ).resolves.toMatchObject({ amount: 25_000, category_key: category.id });
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls[1]![1]).toMatchObject({
+      prompt: expect.stringContaining("Strict retry"),
+    });
+  });
+
   it("menolak category alias di luar daftar", async () => {
     const ai = {
       run: vi.fn(async () => ({
@@ -176,5 +193,54 @@ describe("receipt scan service", () => {
       category,
     ]);
     expect(result.amount).toBe(expected);
+  });
+
+  it("menormalkan draft tanpa wrapper yang memakai nama field alternatif", () => {
+    expect(
+      parseReceiptAiResponse(`{
+        "total_amount":"Rp 42.500",
+        "transaction_date":"2026-09-08",
+        "merchant_name":"Toko Maju",
+        "summary":"Belanja kebutuhan",
+        "category":"category_1",
+        "confidence":"85%",
+        "warning":"Periksa kembali total"
+      }`),
+    ).toEqual({
+      total_amount: "Rp 42.500",
+      transaction_date: "2026-09-08",
+      merchant_name: "Toko Maju",
+      summary: "Belanja kebutuhan",
+      category: "category_1",
+      confidence: "85%",
+      warning: "Periksa kembali total",
+      draft: expect.objectContaining({
+        amount: 42_500,
+        date: "2026-09-08",
+        merchant: "Toko Maju",
+        description: "Belanja kebutuhan",
+        category_key: "category_1",
+        confidence: 0.85,
+        warnings: ["Periksa kembali total"],
+      }),
+    });
+  });
+
+  it("menormalkan draft yang dibungkus result", () => {
+    expect(
+      parseReceiptAiResponse(
+        '{"result":{"draft":{"amount":25000,"category_key":"category_1"}}}',
+      ),
+    ).toMatchObject({
+      draft: {
+        amount: 25_000,
+        date: null,
+        merchant: null,
+        description: null,
+        category_key: "category_1",
+        confidence: 0.5,
+        warnings: [],
+      },
+    });
   });
 });

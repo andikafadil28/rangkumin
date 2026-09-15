@@ -14,17 +14,19 @@
 
 # CURRENT
 
-**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Telegram runtime dihapus dan hanya menjadi kandidat add-on future update. Import/Export, Scan Struk, Web Push, dan notifikasi transaksi income/expense sudah di-deploy ke production. Demo publik frontend-only juga aktif sebagai Static Assets terpisah tanpa binding backend.
+**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Telegram runtime dihapus dan hanya menjadi kandidat add-on future update. Import/Export, Scan Struk, Web Push, notifikasi transaksi, hardening respons Scan Struk galeri Android, popup detail riwayat transaksi, dan nama akun pada kartu saldo sudah di-deploy ke production. Demo publik frontend-only juga aktif sebagai Static Assets terpisah tanpa binding backend.
 
-Terverifikasi lokal dan CI: **106 Worker test + 47 frontend test = 153**, lint/typecheck/format/build/secret scan hijau. Demo version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`; root 200 dan `/api/me` hanya SPA fallback HTML.
+Snapshot lokal terbaru: **109 Worker test + 55 frontend test = 164**; typecheck, lint file perubahan, format, dan build hijau. Production version `36b4df86-1f8f-4ddd-bc3f-7a6350e7e58a`; health 200 dan origin aplikasi tetap diproteksi Access. Demo version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`; root 200 dan `/api/me` hanya SPA fallback HTML.
 
 Dokumentasi mencakup README bilingual, setup guide teknis Indonesia/English, dan panduan instalasi pemula step-by-step Indonesia/English; masing-masing panduan tersedia sebagai PDF terpisah.
 
 Fitur yang sudah ada di production:
 
-- **Scan Struk** `POST /api/receipt-scans` (multipart; MIME/magic/size/origin divalidasi) memakai Workers AI `@cf/meta/llama-3.2-11b-vision-instruct`. Foto di-resize di browser (`receiptImage.ts`, max 1800px, JPEG ≤2 MiB, EXIF stripped), tidak disimpan. Hasil hanya **draft terkonfirmasi** (tidak auto-submit). Schema toleran via `normalizeReceiptDraft` + `.passthrough()` (amount string `"Rp 25.000"`/`"25000"` dinormalisasi).
+- **Scan Struk** `POST /api/receipt-scans` (multipart; MIME/magic/size/origin divalidasi) memakai Workers AI `@cf/meta/llama-3.2-11b-vision-instruct`. Foto di-resize di browser (`receiptImage.ts`, max 1800px, JPEG ≤2 MiB, EXIF stripped), tidak disimpan. Hasil hanya **draft terkonfirmasi**. Parser menerima wrapper `draft`/`result`/`receipt`, direct draft, alias field umum, amount string, confidence persen, dan satu retry khusus respons malformed.
 - **Web Push** opt-in per perangkat, VAPID RFC 8292 (`@block65/webcrypto-web-push`), max 10 device/user, outbox delivery (`web_push_deliveries`) dengan lease/retry/cleanup 404-410. Secrets production `WEB_PUSH_VAPID_*` terpasang.
 - **Notifikasi transaksi**: saat income/expense dibuat, `notifyTransactionCreated` membuat notifikasi `kind='transaction'` untuk pasangan ("X mencatat pengeluaran / Rp50.000 — deskripsi", `dedupe_key transaction:{id}:{partnerId}`). Fan-out mencakup `kind IN ('reminder','budget_threshold','transaction')`; route POST `/api/transactions` memicu delivery langsung via `executionCtx.waitUntil`.
+- **Detail riwayat transaksi**: tekan area utama row untuk dialog read-only berisi jenis, nominal, tanggal, pemilik, kategori, catatan lengkap, dan status Trash. Mendukung transaksi pasangan/mutasi tabungan, hide balance, Escape, dan bottom sheet mobile; tombol `•••` tetap khusus edit/hapus.
+- **Kartu saldo dashboard**: judul memakai nama akun masing-masing dari API summary dan avatar memakai inisial nama, dengan label ownership tetap terlihat.
 - **Web Push aksi** untuk reminder: Sudah Dibayar, Ingatkan Lagi, Catat sebagai Pengeluaran; deep link terkunci `/`.
 - **Import/Export (Phase 11)**: export CSV per domain + Excel keseluruhan; import CSV/Excel ber-job (preview/mapping/validasi/duplicate detection/atomic) via `0006_import_jobs.sql`.
 - **Dashboard & PWA**: ringkasan dua user + gabungan, grafik, snapshot last-known + offline outbox (idempotency key, `X-Rangkumin-Actor-Id`), view mode Bersama/Saya, tema Bersama/Tenang/Minimal.
@@ -32,7 +34,7 @@ Fitur yang sudah ada di production:
 - **Tabungan/anggaran/pengingat**: pos pribadi/bersama + transfer atomik; budget bulanan + custom threshold; reminder sekali/interval/harian/mingguan/bulanan dengan snooze & complete.
 - Auth: Cloudflare Access (JWT diverifikasi) untuk dua pengguna; semua mutation guarded ownership.
 
-Smoke: health 200, protected API → 302 Access, Scan Struk sukses di production. Belum di-smoke-test: Web Push perangkat nyata, user kedua, installability/offline reload, E2E frontend, audit accessibility mendalam.
+Smoke: health 200 dan protected origin → 302 Access. Scan Struk dan popup detail versi baru sudah deployed; konfirmasi visual/fungsional terakhir dilakukan user pada perangkat nyata. Belum di-smoke-test: Web Push perangkat nyata, user kedua, installability/offline reload, E2E frontend, audit accessibility mendalam.
 
 # DECISIONS
 

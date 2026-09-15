@@ -327,7 +327,12 @@ describe("summarizeTransactions", () => {
       },
       {
         match: (sql) => sql.includes("FROM users"),
-        response: { all: [{ id: "user-1" }, { id: "user-2" }] },
+        response: {
+          all: [
+            { id: "user-1", display_name: "Ari" },
+            { id: "user-2", display_name: "Dara" },
+          ],
+        },
       },
     ]);
 
@@ -339,6 +344,7 @@ describe("summarizeTransactions", () => {
     expect(result.byUser).toEqual([
       {
         userId: "user-1",
+        displayName: "Ari",
         income: 6000000,
         incomeCount: 2,
         expense: 1500000,
@@ -347,6 +353,7 @@ describe("summarizeTransactions", () => {
       },
       {
         userId: "user-2",
+        displayName: "Dara",
         income: 4000000,
         incomeCount: 1,
         expense: 0,

@@ -108,21 +108,36 @@ export async function scanReceipt(
     category,
   }));
 
-  let output: Awaited<ReturnType<VisionAi["run"]>>;
-  try {
-    output = await ai.run(RECEIPT_VISION_MODEL, {
-      prompt: promptFor(
-        aliases.map(({ alias, category }) => ({ alias, name: category.name })),
-      ),
-      image: Array.from(image),
-      max_tokens: 700,
-      temperature: 0,
-    });
-  } catch {
-    throw new ReceiptScanError("Pemindai struk sedang tidak tersedia.", 502);
-  }
+  const prompt = promptFor(
+    aliases.map(({ alias, category }) => ({ alias, name: category.name })),
+  );
+  let parsed: ReturnType<typeof parseReceiptAiResponse> | undefined;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let output: Awaited<ReturnType<VisionAi["run"]>>;
+    try {
+      output = await ai.run(RECEIPT_VISION_MODEL, {
+        prompt:
+          attempt === 0
+            ? prompt
+            : `${prompt}\nStrict retry: return one complete JSON object only, even when every receipt field is uncertain.`,
+        image: Array.from(image),
+        max_tokens: 700,
+        temperature: 0,
+      });
+    } catch {
+      throw new ReceiptScanError("Pemindai struk sedang tidak tersedia.", 502);
+    }
 
-  const parsed = parseReceiptAiResponse(output.response);
+    try {
+      parsed = parseReceiptAiResponse(output.response);
+      break;
+    } catch (error) {
+      if (attempt === 1) throw error;
+    }
+  }
+  if (!parsed)
+    throw new ReceiptScanError("Respons pemindai struk tidak valid.", 502);
+
   const selected = parsed.draft.category_key
     ? aliases.find(({ alias }) => alias === parsed.draft.category_key)
     : undefined;

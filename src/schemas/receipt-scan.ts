@@ -42,11 +42,15 @@ function parseNullableText(value: unknown, maxLength: number): string | null {
 
 function parseConfidence(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) {
-    return Math.min(1, Math.max(0, value));
+    const normalized = value > 1 && value <= 100 ? value / 100 : value;
+    return Math.min(1, Math.max(0, normalized));
   }
   if (typeof value === "string") {
-    const num = Number(value);
-    if (Number.isFinite(num)) return Math.min(1, Math.max(0, num));
+    const num = Number(value.replace("%", "").trim());
+    if (Number.isFinite(num)) {
+      const normalized = num > 1 && num <= 100 ? num / 100 : num;
+      return Math.min(1, Math.max(0, normalized));
+    }
   }
   return 0.5;
 }
@@ -62,20 +66,82 @@ function parseWarnings(value: unknown): string[] {
     .slice(0, 10);
 }
 
-function normalizeReceiptDraft(
-  raw: Record<string, unknown>,
-): Record<string, unknown> {
-  const draft = raw.draft;
-  if (draft == null || typeof draft !== "object") return raw;
-  const d = draft as Record<string, unknown>;
-  d.amount = parseAmount(d.amount);
-  d.date = parseDateString(d.date);
-  d.merchant = parseNullableText(d.merchant, 200);
-  d.description = parseNullableText(d.description, 500);
-  d.category_key = parseNullableText(d.category_key, 64);
-  d.confidence = parseConfidence(d.confidence);
-  d.warnings = parseWarnings(d.warnings);
-  return raw;
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+const receiptFieldNames = new Set([
+  "amount",
+  "total",
+  "total_amount",
+  "grand_total",
+  "date",
+  "transaction_date",
+  "receipt_date",
+  "merchant",
+  "merchant_name",
+  "store",
+  "store_name",
+  "description",
+  "summary",
+  "purchase_summary",
+  "category_key",
+  "category",
+  "category_alias",
+]);
+
+function findReceiptDraft(raw: Record<string, unknown>) {
+  const wrappedDraft = asRecord(raw.draft);
+  if (wrappedDraft) return wrappedDraft;
+
+  for (const key of ["result", "receipt"] as const) {
+    const wrapper = asRecord(raw[key]);
+    if (!wrapper) continue;
+    return asRecord(wrapper.draft) ?? wrapper;
+  }
+
+  return Object.keys(raw).some((key) => receiptFieldNames.has(key))
+    ? raw
+    : null;
+}
+
+function normalizeReceiptDraft(raw: unknown): unknown {
+  const record = asRecord(raw);
+  if (!record) return raw;
+  const draft = findReceiptDraft(record);
+  if (!draft) return raw;
+
+  return {
+    ...record,
+    draft: {
+      ...draft,
+      amount: parseAmount(
+        draft.amount ?? draft.total_amount ?? draft.total ?? draft.grand_total,
+      ),
+      date: parseDateString(
+        draft.date ?? draft.transaction_date ?? draft.receipt_date,
+      ),
+      merchant: parseNullableText(
+        draft.merchant ??
+          draft.merchant_name ??
+          draft.store ??
+          draft.store_name,
+        200,
+      ),
+      description: parseNullableText(
+        draft.description ?? draft.summary ?? draft.purchase_summary,
+        500,
+      ),
+      category_key: parseNullableText(
+        draft.category_key ?? draft.category ?? draft.category_alias,
+        64,
+      ),
+      confidence: parseConfidence(draft.confidence),
+      warnings: parseWarnings(draft.warnings ?? draft.warning),
+    },
+  };
 }
 
 export const receiptAiDraftSchema = z

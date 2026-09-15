@@ -139,6 +139,7 @@ export async function notifyTransactionCreated(
 
 export type SummaryItem = {
   userId: string;
+  displayName: string;
   income: number;
   incomeCount: number;
   expense: number;
@@ -643,13 +644,20 @@ export async function summarizeTransactions(
     .bind(...parameters)
     .all<CategoryTotalRow>();
 
-  const users = filters.ownerUserId
-    ? [{ id: filters.ownerUserId }]
-    : (
-        await database
-          .prepare(`SELECT id FROM users WHERE is_active = 1 ORDER BY id`)
-          .all<{ id: string }>()
-      ).results;
+  const usersQuery = filters.ownerUserId
+    ? database
+        .prepare(
+          `SELECT id, display_name FROM users
+           WHERE is_active = 1 AND id = ?1 ORDER BY id`,
+        )
+        .bind(filters.ownerUserId)
+    : database.prepare(
+        `SELECT id, display_name FROM users WHERE is_active = 1 ORDER BY id`,
+      );
+  const { results: users } = await usersQuery.all<{
+    id: string;
+    display_name: string;
+  }>();
 
   const totalsByType = (userId: string, type: "income" | "expense") =>
     totals.find((row) => row.owner_user_id === userId && row.type === type);
@@ -662,6 +670,7 @@ export async function summarizeTransactions(
 
     return {
       userId: user.id,
+      displayName: user.display_name,
       income: incomeTotal,
       incomeCount: income?.count ?? 0,
       expense: expenseTotal,
