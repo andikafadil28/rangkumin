@@ -15,9 +15,9 @@
 
 # CURRENT
 
-**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Mode warna otomatis/terang/gelap dan filter transaksi lanjutan sudah di-deploy ke production; Dashboard Insights baru selesai diimplementasikan dan diverifikasi (belum di-deploy). GitHub Release terbaru tetap `v1.0.0` pada commit `fe79904`. Demo publik frontend-only tetap aktif sebagai Static Assets terpisah tanpa binding backend.
+**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Mode warna otomatis/terang/gelap, filter transaksi lanjutan, dan Dashboard Insights sudah di-deploy ke production. GitHub Release terbaru tetap `v1.0.0` pada commit `fe79904`. Demo publik frontend-only tetap aktif sebagai Static Assets terpisah tanpa binding backend.
 
-Snapshot lokal terbaru: **113 Worker test + 65 frontend test = 178**; typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Production version `5c47a6ce-9c1e-4e7b-bba1-7d98a9543583`; health 200 dan origin tetap diproteksi Access. Demo production tetap version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`.
+Snapshot lokal terbaru: **113 Worker test + 65 frontend test = 178**; typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Production version `fe586f95-c7d1-421f-87a6-101bdc36e4b1`; health 200 dan origin tetap diproteksi Access. Demo production tetap version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`.
 
 Dokumentasi mencakup README bilingual, setup guide teknis Indonesia/English, dan panduan instalasi pemula step-by-step Indonesia/English; masing-masing panduan tersedia sebagai PDF terpisah.
 
@@ -39,12 +39,9 @@ Fitur terbaru di production:
 
 - **Mode warna**: pilihan System/Terang/Gelap terpisah dari tema Bersama/Tenang/Minimal, bootstrap anti-flash, listener `prefers-color-scheme`, dan palette dark per tema.
 - **Filter transaksi lanjutan**: pencarian catatan, rentang tanggal dan nominal, sorting tanggal/nominal, reset filter, validasi client/server, dukungan Trash serta demo. Query search memakai bind parameter dan escaping wildcard LIKE.
-
-Fitur siap deploy (implementasi selesai + test hijau):
-
 - **Dashboard Insights**: `/api/summary` menambahkan `comparison` (total bulan sebelumnya via satu query agregat `summarizeTransactionTotals` + `getPreviousMonthRange`; `null` jika hanya satu sisi tanggal yang dikirim). Panel insight menampilkan headline pengeluaran vs bulan lalu, kartu Pengeluaran/Pemasukan/Kategori terbesar, menghormati hide balance dan mode Bersama/Saya. Kategori terbesar hanya menghitung `expense` (koreksi dari sebelumnya yang ikut memasukkan income).
 
-Smoke production terakhir: health 200 dan protected origin → 302 Access. Belum di-smoke-test: Dashboard Insights (belum di-deploy), mode warna/filter baru secara visual di perangkat nyata, Web Push perangkat nyata, user kedua, installability/offline reload, E2E frontend, audit accessibility mendalam.
+Smoke production terakhir: health 200 dan protected origin → 302 Access. Belum di-smoke-test: Dashboard Insights, mode warna/filter baru secara visual di perangkat nyata, Web Push perangkat nyata, user kedua, installability/offline reload, E2E frontend, audit accessibility mendalam.
 
 # DECISIONS
 
