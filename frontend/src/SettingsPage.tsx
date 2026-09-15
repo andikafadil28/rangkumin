@@ -7,6 +7,7 @@ import {
 import { clearOfflineDataSafely } from "./offline/sync";
 import type { ViewMode } from "./viewMode";
 import { DEMO_MODE } from "./demoMode";
+import type { ColorPreference, Theme } from "./theme";
 import {
   createBrowserPushDependencies,
   disablePushSubscription,
@@ -17,15 +18,15 @@ import {
   unsubscribePushBestEffort,
 } from "./webPush";
 
-type Theme = "together" | "calm" | "minimal";
-
 export function SettingsPage({
   displayName,
   theme,
+  colorPreference,
   balancesHidden,
   viewMode,
   onViewModeChange,
   onThemeChange,
+  onColorPreferenceChange,
   onBalanceToggle,
   onOpenTrash,
   onOpenDataTransfer,
@@ -33,10 +34,12 @@ export function SettingsPage({
 }: {
   displayName: string;
   theme: Theme;
+  colorPreference: ColorPreference;
   balancesHidden: boolean;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onThemeChange: (theme: Theme) => void;
+  onColorPreferenceChange: (preference: ColorPreference) => void;
   onBalanceToggle: () => void;
   onOpenTrash: () => void;
   onOpenDataTransfer: () => void;
@@ -227,6 +230,32 @@ export function SettingsPage({
                 <small>Lugas dan fokus</small>
               </span>
             </button>
+          </div>
+          <div className="setting-copy color-mode-copy">
+            <h3>Mode warna</h3>
+            <p>Otomatis mengikuti pengaturan terang atau gelap perangkat.</p>
+          </div>
+          <div
+            className="color-mode-picker"
+            role="group"
+            aria-label="Mode warna tampilan"
+          >
+            {(
+              [
+                ["system", "Otomatis"],
+                ["light", "Terang"],
+                ["dark", "Gelap"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={colorPreference === value}
+                onClick={() => onColorPreferenceChange(value)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </section>
         <section className="settings-card">

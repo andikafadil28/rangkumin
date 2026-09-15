@@ -245,7 +245,7 @@ describe("listTransactions", () => {
         response: { first: { total: 2 } },
       },
       {
-        match: (sql) => sql.includes("ORDER BY t.transaction_date DESC"),
+        match: (sql) => sql.includes("ORDER BY t.amount DESC"),
         response: { all: rows },
       },
     ]);
@@ -254,6 +254,12 @@ describe("listTransactions", () => {
       ownerUserId: "user-1",
       type: "expense",
       categoryId: "expense-default-1",
+      dateFrom: "2026-09-01",
+      dateTo: "2026-09-30",
+      search: "mingguan%_",
+      minAmount: 10_000,
+      maxAmount: 500_000,
+      sort: "amount_desc",
       status: "active",
       limit: 50,
       offset: 0,
@@ -266,10 +272,19 @@ describe("listTransactions", () => {
     expect(countSql).toContain("t.deleted_at IS NULL");
     expect(countSql).toContain("t.owner_user_id = ?");
     expect(countSql).toContain("t.type = ?");
+    expect(countSql).toContain("COALESCE(t.description, '') LIKE ?");
+    expect(countSql).toContain("t.amount >= ?");
+    expect(countSql).toContain("t.amount <= ?");
+    expect(database.calls[1]!.sql).toContain("t.id DESC");
     expect(database.calls[1]!.bind).toEqual([
       "user-1",
       "expense",
       "expense-default-1",
+      "2026-09-01",
+      "2026-09-30",
+      "%mingguan\\%\\_%",
+      10_000,
+      500_000,
       50,
       0,
     ]);

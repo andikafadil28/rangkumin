@@ -401,12 +401,44 @@ function listTransactions(url: URL, trashed = false) {
   const owner = url.searchParams.get("owner");
   const type = url.searchParams.get("type");
   const categoryId = url.searchParams.get("category");
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
+  const search = url.searchParams.get("search")?.toLocaleLowerCase("id-ID");
+  const minAmount = Number(url.searchParams.get("min_amount") ?? 0);
+  const maxAmount = Number(
+    url.searchParams.get("max_amount") ?? Number.MAX_SAFE_INTEGER,
+  );
+  const sort = url.searchParams.get("sort") ?? "date_desc";
   const items = state.transactions
     .filter((item) => Boolean(item.deletedAt) === trashed)
     .filter((item) => !owner || item.ownerUserId === owner)
     .filter((item) => !type || item.type === type)
     .filter((item) => !categoryId || item.categoryId === categoryId)
-    .sort((a, b) => b.transactionDate.localeCompare(a.transactionDate));
+    .filter((item) => !from || item.transactionDate >= from)
+    .filter((item) => !to || item.transactionDate <= to)
+    .filter(
+      (item) =>
+        !search ||
+        (item.description ?? "").toLocaleLowerCase("id-ID").includes(search),
+    )
+    .filter((item) => item.amount >= minAmount && item.amount <= maxAmount)
+    .sort((a, b) => {
+      const dateDescending = b.transactionDate.localeCompare(a.transactionDate);
+      if (sort === "date_asc")
+        return (
+          a.transactionDate.localeCompare(b.transactionDate) ||
+          a.id.localeCompare(b.id)
+        );
+      if (sort === "amount_desc")
+        return (
+          b.amount - a.amount || dateDescending || b.id.localeCompare(a.id)
+        );
+      if (sort === "amount_asc")
+        return (
+          a.amount - b.amount || dateDescending || b.id.localeCompare(a.id)
+        );
+      return dateDescending || b.id.localeCompare(a.id);
+    });
   return {
     items: clone(items.slice(offset, offset + 10)),
     total: items.length,

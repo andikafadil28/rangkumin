@@ -85,6 +85,24 @@ describe("demo frontend-only", () => {
     );
   });
 
+  it("menerapkan pencarian, rentang nominal, dan urutan transaksi", async () => {
+    const result = await demoRequestJson<{
+      items: Array<{ description: string | null; amount: number }>;
+      total: number;
+    }>(
+      "/api/transactions?search=gaji&min_amount=7000000&max_amount=9000000&sort=amount_asc",
+    );
+
+    expect(result.total).toBe(2);
+    expect(result.items.map((item) => item.description)).toEqual([
+      "Gaji bulanan",
+      "Gaji bulanan",
+    ]);
+    expect(result.items.map((item) => item.amount)).toEqual([
+      7_200_000, 8_500_000,
+    ]);
+  });
+
   it("memutasi saldo tabungan secara lokal", async () => {
     await demoRequestJson("/api/savings/goals/goal-1/deposits", {
       method: "POST",

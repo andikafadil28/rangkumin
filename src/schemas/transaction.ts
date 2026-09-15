@@ -87,6 +87,12 @@ export const updateTransactionSchema = z
   );
 
 export const transactionStatusSchema = z.enum(["active", "trashed", "all"]);
+export const transactionSortSchema = z.enum([
+  "date_desc",
+  "date_asc",
+  "amount_desc",
+  "amount_asc",
+]);
 
 export const listTransactionsQuerySchema = z
   .object({
@@ -95,6 +101,20 @@ export const listTransactionsQuerySchema = z
     category: categoryIdSchema.optional(),
     from: dateStringSchema.optional(),
     to: dateStringSchema.optional(),
+    search: z.string().trim().min(1).max(100).optional(),
+    min_amount: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(Number.MAX_SAFE_INTEGER)
+      .optional(),
+    max_amount: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(Number.MAX_SAFE_INTEGER)
+      .optional(),
+    sort: transactionSortSchema.optional().default("date_desc"),
     status: transactionStatusSchema.optional().default("active"),
     limit: z.coerce.number().int().min(1).max(100).optional().default(50),
     offset: z.coerce.number().int().min(0).optional().default(0),
@@ -103,7 +123,17 @@ export const listTransactionsQuerySchema = z
   .refine((value) => !value.from || !value.to || value.from <= value.to, {
     message: "Tanggal akhir tidak boleh sebelum tanggal awal.",
     path: ["to"],
-  });
+  })
+  .refine(
+    (value) =>
+      !value.min_amount ||
+      !value.max_amount ||
+      value.min_amount <= value.max_amount,
+    {
+      message: "Nominal maksimum tidak boleh lebih kecil dari nominal minimum.",
+      path: ["max_amount"],
+    },
+  );
 
 export const summaryQuerySchema = z
   .object({

@@ -13,9 +13,15 @@ import { useOfflineSync } from "./offline/useOfflineSync";
 import { partitionGoals, setViewMode, getViewMode } from "./viewMode";
 import type { ViewMode } from "./viewMode";
 import { DEMO_MODE } from "./demoMode";
+import {
+  parseColorPreference,
+  parseTheme,
+  resolveColorMode,
+  themeColor,
+} from "./theme";
+import type { ColorPreference, Theme } from "./theme";
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>;
-type Theme = "together" | "calm" | "minimal";
 type Page =
   "home" | "transactions" | "savings" | "plans" | "settings" | "data-transfer";
 
@@ -284,10 +290,12 @@ export function App() {
     stale: boolean;
     syncedAt: string | null;
   }>({ stale: false, syncedAt: null });
-  const [theme, setTheme] = useState<Theme>(() => {
-    const saved = document.documentElement.dataset.theme;
-    return saved === "calm" || saved === "minimal" ? saved : "together";
-  });
+  const [theme, setTheme] = useState<Theme>(() =>
+    parseTheme(document.documentElement.dataset.theme),
+  );
+  const [colorPreference, setColorPreference] = useState<ColorPreference>(() =>
+    parseColorPreference(document.documentElement.dataset.colorPreference),
+  );
   const [balancesHidden, setBalancesHidden] = useState(
     () => localStorage.getItem("rangkumin-hide-balances") === "true",
   );
@@ -340,15 +348,31 @@ export function App() {
     return () => window.removeEventListener("keydown", close);
   }, [quickOpen]);
 
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      const mode = resolveColorMode(colorPreference, media.matches);
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.dataset.colorPreference = colorPreference;
+      document.documentElement.dataset.colorMode = mode;
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute("content", themeColor(theme, mode));
+    };
+    apply();
+    if (colorPreference !== "system") return;
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, [theme, colorPreference]);
+
   function selectTheme(next: Theme) {
-    document.documentElement.dataset.theme = next;
-    const tone =
-      next === "calm" ? "#f3f0e8" : next === "minimal" ? "#f7f7f4" : "#f8f0e9";
-    document
-      .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", tone);
     localStorage.setItem("rangkumin-theme", next);
     setTheme(next);
+  }
+
+  function selectColorPreference(next: ColorPreference) {
+    localStorage.setItem("rangkumin-color-mode", next);
+    setColorPreference(next);
   }
 
   function toggleBalances() {
@@ -604,10 +628,12 @@ export function App() {
           <SettingsPage
             displayName={data.user.displayName}
             theme={theme}
+            colorPreference={colorPreference}
             balancesHidden={balancesHidden}
             viewMode={viewMode}
             onViewModeChange={changeViewMode}
             onThemeChange={selectTheme}
+            onColorPreferenceChange={selectColorPreference}
             onBalanceToggle={toggleBalances}
             onOpenTrash={() => {
               setTrashIntent(true);

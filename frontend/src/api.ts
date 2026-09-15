@@ -405,6 +405,12 @@ export async function getTransactions(
     type?: string;
     category?: string;
     owner?: string;
+    from?: string;
+    to?: string;
+    search?: string;
+    minAmount?: number;
+    maxAmount?: number;
+    sort?: "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
     offset: number;
     status?: "active" | "trashed";
   },
@@ -418,6 +424,14 @@ export async function getTransactions(
   if (filters.type) query.set("type", filters.type);
   if (filters.category) query.set("category", filters.category);
   if (filters.owner) query.set("owner", filters.owner);
+  if (filters.from) query.set("from", filters.from);
+  if (filters.to) query.set("to", filters.to);
+  if (filters.search) query.set("search", filters.search);
+  if (filters.minAmount !== undefined)
+    query.set("min_amount", String(filters.minAmount));
+  if (filters.maxAmount !== undefined)
+    query.set("max_amount", String(filters.maxAmount));
+  if (filters.sort) query.set("sort", filters.sort);
   return getJson<{
     items: Transaction[];
     total: number;
@@ -427,7 +441,16 @@ export async function getTransactions(
 }
 
 export async function getTrashedTransactions(
-  filters: { owner?: string; offset: number },
+  filters: {
+    owner?: string;
+    from?: string;
+    to?: string;
+    search?: string;
+    minAmount?: number;
+    maxAmount?: number;
+    sort?: "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
+    offset: number;
+  },
   signal?: AbortSignal,
 ) {
   const query = new URLSearchParams({
@@ -435,6 +458,14 @@ export async function getTrashedTransactions(
     offset: String(filters.offset),
   });
   if (filters.owner) query.set("owner", filters.owner);
+  if (filters.from) query.set("from", filters.from);
+  if (filters.to) query.set("to", filters.to);
+  if (filters.search) query.set("search", filters.search);
+  if (filters.minAmount !== undefined)
+    query.set("min_amount", String(filters.minAmount));
+  if (filters.maxAmount !== undefined)
+    query.set("max_amount", String(filters.maxAmount));
+  if (filters.sort) query.set("sort", filters.sort);
   return getJson<{
     items: Transaction[];
     total: number;

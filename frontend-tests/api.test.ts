@@ -5,6 +5,7 @@ import {
   commitImportFile,
   createTransaction,
   downloadFile,
+  getTransactions,
   previewImport,
   requestJson,
   safeDownloadFilename,
@@ -84,6 +85,43 @@ describe("requestJson", () => {
         }),
       }),
     );
+  });
+
+  it("mengirim filter transaksi lanjutan sebagai query terenkode", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ items: [], total: 0, limit: 10, offset: 0 }),
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getTransactions({
+      owner: "user-1",
+      from: "2026-09-01",
+      to: "2026-09-30",
+      search: "belanja mingguan",
+      minAmount: 10_000,
+      maxAmount: 500_000,
+      sort: "amount_desc",
+      offset: 0,
+    });
+
+    const requested = new URL(
+      String(fetchMock.mock.calls[0]![0]),
+      "https://rangkumin.invalid",
+    );
+    expect(Object.fromEntries(requested.searchParams)).toMatchObject({
+      owner: "user-1",
+      from: "2026-09-01",
+      to: "2026-09-30",
+      search: "belanja mingguan",
+      min_amount: "10000",
+      max_amount: "500000",
+      sort: "amount_desc",
+    });
   });
 });
 

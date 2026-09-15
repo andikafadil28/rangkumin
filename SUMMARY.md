@@ -9,14 +9,15 @@
 - Production: `https://rangkumin.dikadevit.my.id`.
 - Demo publik: `https://demo.rangkumin.dikadevit.my.id`.
 - Repository: `https://github.com/andikafadil28/rangkumin`.
+- Release terbaru: `v1.0.0` (`https://github.com/andikafadil28/rangkumin/releases/tag/v1.0.0`).
 - Author: Andika Fadil (`@andikafadil28`).
 - Donasi: `https://buymeacoffee.com/dikadev`.
 
 # CURRENT
 
-**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Telegram runtime dihapus dan hanya menjadi kandidat add-on future update. Import/Export, Scan Struk, Web Push, notifikasi transaksi, hardening respons Scan Struk galeri Android, popup detail riwayat transaksi, dan nama akun pada kartu saldo sudah di-deploy ke production. Demo publik frontend-only juga aktif sebagai Static Assets terpisah tanpa binding backend.
+**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Mode warna otomatis/terang/gelap dan filter transaksi lanjutan sudah selesai serta terverifikasi lokal, tetapi belum di-deploy. GitHub Release terbaru tetap `v1.0.0` pada commit `fe79904`. Demo publik frontend-only tetap aktif sebagai Static Assets terpisah tanpa binding backend.
 
-Snapshot lokal terbaru: **109 Worker test + 55 frontend test = 164**; typecheck, lint file perubahan, format, dan build hijau. Production version `36b4df86-1f8f-4ddd-bc3f-7a6350e7e58a`; health 200 dan origin aplikasi tetap diproteksi Access. Demo version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`; root 200 dan `/api/me` hanya SPA fallback HTML.
+Snapshot lokal terbaru: **111 Worker test + 62 frontend test = 173**; typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Production masih version `36b4df86-1f8f-4ddd-bc3f-7a6350e7e58a`; mode warna/filter baru belum di-deploy. Demo production tetap version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`.
 
 Dokumentasi mencakup README bilingual, setup guide teknis Indonesia/English, dan panduan instalasi pemula step-by-step Indonesia/English; masing-masing panduan tersedia sebagai PDF terpisah.
 
@@ -34,7 +35,12 @@ Fitur yang sudah ada di production:
 - **Tabungan/anggaran/pengingat**: pos pribadi/bersama + transfer atomik; budget bulanan + custom threshold; reminder sekali/interval/harian/mingguan/bulanan dengan snooze & complete.
 - Auth: Cloudflare Access (JWT diverifikasi) untuk dua pengguna; semua mutation guarded ownership.
 
-Smoke: health 200 dan protected origin → 302 Access. Scan Struk dan popup detail versi baru sudah deployed; konfirmasi visual/fungsional terakhir dilakukan user pada perangkat nyata. Belum di-smoke-test: Web Push perangkat nyata, user kedua, installability/offline reload, E2E frontend, audit accessibility mendalam.
+Fitur lokal yang menunggu deployment:
+
+- **Mode warna**: pilihan System/Terang/Gelap terpisah dari tema Bersama/Tenang/Minimal, bootstrap anti-flash, listener `prefers-color-scheme`, dan palette dark per tema.
+- **Filter transaksi lanjutan**: pencarian catatan, rentang tanggal dan nominal, sorting tanggal/nominal, reset filter, validasi client/server, dukungan Trash serta demo. Query search memakai bind parameter dan escaping wildcard LIKE.
+
+Smoke production terakhir: health 200 dan protected origin → 302 Access. Belum di-smoke-test: mode warna/filter baru di perangkat nyata, Web Push perangkat nyata, user kedua, installability/offline reload, E2E frontend, audit accessibility mendalam.
 
 # DECISIONS
 

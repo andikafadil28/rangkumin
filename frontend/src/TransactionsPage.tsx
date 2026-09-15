@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useAutoRefresh } from "./useAutoRefresh";
 import {
@@ -95,6 +95,41 @@ export function transactionTypeLabel(type: Transaction["type"]) {
 }
 
 type TransactionType = "income" | "expense";
+type TransactionSort = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
+
+function amountFilterValue(value: string) {
+  if (!/^\d+$/.test(value)) return undefined;
+  const amount = Number(value);
+  return Number.isSafeInteger(amount) && amount > 0 ? amount : undefined;
+}
+
+export function validateTransactionFilterRange({
+  dateFrom,
+  dateTo,
+  minAmount,
+  maxAmount,
+}: {
+  dateFrom: string;
+  dateTo: string;
+  minAmount: string;
+  maxAmount: string;
+}) {
+  if (dateFrom && dateTo && dateFrom > dateTo) {
+    return "Tanggal akhir tidak boleh sebelum tanggal awal.";
+  }
+  const minimum = amountFilterValue(minAmount);
+  const maximum = amountFilterValue(maxAmount);
+  if (
+    (minAmount && minimum === undefined) ||
+    (maxAmount && maximum === undefined)
+  ) {
+    return "Nominal filter harus berupa angka bulat lebih dari nol.";
+  }
+  if (minimum !== undefined && maximum !== undefined && minimum > maximum) {
+    return "Nominal maksimum tidak boleh lebih kecil dari nominal minimum.";
+  }
+  return null;
+}
 type ReceiptScanResult = {
   draft: {
     type: "expense";
@@ -678,6 +713,12 @@ export function TransactionsPage({
   const [type, setType] = useState("");
   const [owner, setOwner] = useState(() => (viewMode === "solo" ? userId : ""));
   const [category, setCategory] = useState("");
+  const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
+  const [sort, setSort] = useState<TransactionSort>("date_desc");
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -696,6 +737,28 @@ export function TransactionsPage({
     kind: "delete" | "restore" | "purge";
     transaction: Transaction;
   } | null>(null);
+  const deferredSearch = useDeferredValue(search.trim());
+  const deferredMinAmount = useDeferredValue(minAmount);
+  const deferredMaxAmount = useDeferredValue(maxAmount);
+  const numericMinAmount = amountFilterValue(deferredMinAmount);
+  const numericMaxAmount = amountFilterValue(deferredMaxAmount);
+  const filterError = validateTransactionFilterRange({
+    dateFrom,
+    dateTo,
+    minAmount,
+    maxAmount,
+  });
+  const activeFilterCount = [
+    view === "active" ? type : "",
+    viewMode === "couple" ? owner : "",
+    view === "active" ? category : "",
+    search.trim(),
+    dateFrom,
+    dateTo,
+    minAmount,
+    maxAmount,
+    sort === "date_desc" ? "" : sort,
+  ].filter(Boolean).length;
 
   useEffect(() => {
     if (intent) setFormType(intent);
@@ -716,18 +779,32 @@ export function TransactionsPage({
   }, [openTrash, onTrashHandled]);
 
   useEffect(() => {
+    if (filterError) {
+      setLoading(false);
+      return;
+    }
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    const resource = `transactions:${view}:${type}:${owner}:${category}:${offset}`;
+    const resource = `transactions:${view}:${type}:${owner}:${category}:${deferredSearch}:${dateFrom}:${dateTo}:${deferredMinAmount}:${deferredMaxAmount}:${sort}:${offset}`;
     loadWithSnapshot(userId, resource, async () => {
+      const advancedFilters = {
+        owner,
+        from: dateFrom,
+        to: dateTo,
+        search: deferredSearch,
+        minAmount: numericMinAmount,
+        maxAmount: numericMaxAmount,
+        sort,
+        offset,
+      };
       const [transactions, categoryItems] = await Promise.all([
         view === "active"
           ? getTransactions(
-              { type, owner, category, offset },
+              { ...advancedFilters, type, category },
               controller.signal,
             )
-          : getTrashedTransactions({ owner, offset }, controller.signal),
+          : getTrashedTransactions(advancedFilters, controller.signal),
         getCategories(controller.signal),
       ]);
       return { transactions, categoryItems };
@@ -751,6 +828,28 @@ export function TransactionsPage({
               demoItems = demoItems.filter(
                 (item) => item.ownerUserId === owner,
               );
+            if (deferredSearch)
+              demoItems = demoItems.filter((item) =>
+                (item.description ?? "")
+                  .toLocaleLowerCase("id-ID")
+                  .includes(deferredSearch.toLocaleLowerCase("id-ID")),
+              );
+            if (dateFrom)
+              demoItems = demoItems.filter(
+                (item) => item.transactionDate >= dateFrom,
+              );
+            if (dateTo)
+              demoItems = demoItems.filter(
+                (item) => item.transactionDate <= dateTo,
+              );
+            if (numericMinAmount !== undefined)
+              demoItems = demoItems.filter(
+                (item) => item.amount >= numericMinAmount,
+              );
+            if (numericMaxAmount !== undefined)
+              demoItems = demoItems.filter(
+                (item) => item.amount <= numericMaxAmount,
+              );
             setItems(demoItems);
             setTotal(demoItems.length);
             setCategories(demoCategories);
@@ -768,7 +867,24 @@ export function TransactionsPage({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [userId, type, owner, category, offset, reload, view]);
+  }, [
+    userId,
+    type,
+    owner,
+    category,
+    deferredSearch,
+    dateFrom,
+    dateTo,
+    deferredMinAmount,
+    deferredMaxAmount,
+    numericMinAmount,
+    numericMaxAmount,
+    sort,
+    offset,
+    reload,
+    view,
+    filterError,
+  ]);
 
   useEffect(() => {
     if (DEMO_MODE) return;
@@ -822,6 +938,19 @@ export function TransactionsPage({
     setOffset(0);
     setDetail(null);
     setSelected(null);
+  }
+
+  function resetFilters() {
+    setType("");
+    setOwner(viewMode === "solo" ? userId : "");
+    setCategory("");
+    setSearch("");
+    setDateFrom("");
+    setDateTo("");
+    setMinAmount("");
+    setMaxAmount("");
+    setSort("date_desc");
+    setOffset(0);
   }
 
   async function applyConfirmed() {
@@ -922,9 +1051,17 @@ export function TransactionsPage({
           <p>Catatan dihapus permanen otomatis setelah 30 hari.</p>
         )}
       </div>
-      <div
-        className={`filter-bar ${view === "trashed" ? "trash-filters" : ""}`}
-      >
+      <div className="filter-bar">
+        <label className="filter-search">
+          <span>Cari catatan</span>
+          <input
+            type="search"
+            value={search}
+            maxLength={100}
+            placeholder="Contoh: belanja mingguan"
+            onChange={(event) => changeFilter(setSearch, event.target.value)}
+          />
+        </label>
         {view === "active" && (
           <>
             <label>
@@ -980,7 +1117,77 @@ export function TransactionsPage({
             </select>
           </label>
         )}
+        <label>
+          <span>Dari tanggal</span>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(event) => changeFilter(setDateFrom, event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Sampai tanggal</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(event) => changeFilter(setDateTo, event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Nominal minimum</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="1"
+            step="1"
+            value={minAmount}
+            placeholder="Rp 0"
+            onChange={(event) => changeFilter(setMinAmount, event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Nominal maksimum</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="1"
+            step="1"
+            value={maxAmount}
+            placeholder="Tanpa batas"
+            onChange={(event) => changeFilter(setMaxAmount, event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Urutkan</span>
+          <select
+            value={sort}
+            onChange={(event) => {
+              setSort(event.target.value as TransactionSort);
+              setOffset(0);
+            }}
+          >
+            <option value="date_desc">Terbaru</option>
+            <option value="date_asc">Terlama</option>
+            <option value="amount_desc">Nominal terbesar</option>
+            <option value="amount_asc">Nominal terkecil</option>
+          </select>
+        </label>
+        <div className="filter-actions">
+          <span>{activeFilterCount} filter aktif</span>
+          <button
+            type="button"
+            disabled={activeFilterCount === 0}
+            onClick={resetFilters}
+          >
+            Reset
+          </button>
+        </div>
       </div>
+      {filterError && (
+        <div className="filter-error" role="alert">
+          {filterError}
+        </div>
+      )}
       <div className="transaction-ledger">
         <div className="ledger-heading">
           <span>

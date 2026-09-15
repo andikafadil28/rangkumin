@@ -82,10 +82,27 @@ export type ListTransactionsFilter = {
   categoryId?: string;
   dateFrom?: string;
   dateTo?: string;
+  search?: string;
+  minAmount?: number;
+  maxAmount?: number;
+  sort?: "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
   status?: "active" | "trashed" | "all";
   limit: number;
   offset: number;
 };
+
+const transactionSortSql = {
+  date_desc: "t.transaction_date DESC, t.created_at DESC, t.id DESC",
+  date_asc: "t.transaction_date ASC, t.created_at ASC, t.id ASC",
+  amount_desc:
+    "t.amount DESC, t.transaction_date DESC, t.created_at DESC, t.id DESC",
+  amount_asc:
+    "t.amount ASC, t.transaction_date DESC, t.created_at DESC, t.id DESC",
+} as const;
+
+function escapeLike(value: string) {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
 
 export type SummaryFilter = {
   ownerUserId?: string;
@@ -573,10 +590,27 @@ export async function listTransactions(
     conditions.push("t.transaction_date <= ?" + (parameters.length + 1));
     parameters.push(filters.dateTo);
   }
+  if (filters.search) {
+    conditions.push(
+      "COALESCE(t.description, '') LIKE ?" +
+        (parameters.length + 1) +
+        " ESCAPE '\\'",
+    );
+    parameters.push(`%${escapeLike(filters.search)}%`);
+  }
+  if (filters.minAmount !== undefined) {
+    conditions.push("t.amount >= ?" + (parameters.length + 1));
+    parameters.push(filters.minAmount);
+  }
+  if (filters.maxAmount !== undefined) {
+    conditions.push("t.amount <= ?" + (parameters.length + 1));
+    parameters.push(filters.maxAmount);
+  }
 
   const whereSql = conditions.length
     ? ` WHERE ${conditions.join(" AND ")}`
     : "";
+  const orderBy = transactionSortSql[filters.sort ?? "date_desc"];
 
   const countRow = await database
     .prepare(`SELECT COUNT(*) AS total FROM transactions t${whereSql}`)
@@ -586,7 +620,7 @@ export async function listTransactions(
   const { results } = await database
     .prepare(
       `${transactionSelect}${whereSql}
-       ORDER BY t.transaction_date DESC, t.created_at DESC
+       ORDER BY ${orderBy}
        LIMIT ?${parameters.length + 1} OFFSET ?${parameters.length + 2}`,
     )
     .bind(...parameters, filters.limit, filters.offset)

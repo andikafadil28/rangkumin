@@ -8,14 +8,15 @@ Identitas proyek:
 
 - Production: `https://rangkumin.dikadevit.my.id`.
 - Repository: `https://github.com/andikafadil28/rangkumin`.
+- Release terbaru: `v1.0.0` (`https://github.com/andikafadil28/rangkumin/releases/tag/v1.0.0`).
 - Author: Andika Fadil (`@andikafadil28`).
 - Lisensi: core MIT, `Copyright (c) 2026 Andika Fadil`; layanan dan add-on komersial dapat memakai perjanjian terpisah.
 - Donasi: `https://buymeacoffee.com/dikadev`.
-- Status: Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda sebagai future update. Telegram runtime dihapus dan hanya menjadi kandidat add-on opsional. Snapshot lokal terbaru: 109 Worker test + 55 frontend test (164); typecheck, lint file perubahan, format, dan build hijau. Fitur aktif sudah di-deploy ke production dan demo publik frontend-only aktif.
+- Status: Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda sebagai future update. Telegram runtime dihapus dan hanya menjadi kandidat add-on opsional. Snapshot lokal terbaru: 111 Worker test + 62 frontend test (173); typecheck, lint file perubahan, format, dan build hijau. Fitur aktif sebelumnya sudah di-deploy ke production dan demo publik frontend-only aktif; mode warna otomatis serta filter transaksi lanjutan masih menunggu deployment.
 
 # CURRENT
 
-Sesi ini: **hardening Scan Struk galeri Android, popup detail riwayat transaksi, dan nama akun pada kartu saldo selesai serta deployed ke production**. Production version terbaru `36b4df86-1f8f-4ddd-bc3f-7a6350e7e58a`; health 200 dan origin aplikasi tetap diproteksi Cloudflare Access. Tidak ada migration baru. Demo publik frontend-only tetap memakai adapter in-memory, data dummy yang reset saat reload, serta deployment Cloudflare Static Assets terpisah tanpa D1, Workers AI, secret, cron, atau backend production.
+Sesi ini: **mode warna otomatis/terang/gelap dan filter transaksi lanjutan selesai diimplementasikan serta diverifikasi lokal, tetapi belum di-deploy**. Filter baru mencakup pencarian catatan, rentang tanggal, rentang nominal, sorting tanggal/nominal, reset, dukungan Trash, dan adapter demo. Tema Bersama/Tenang/Minimal tetap terpisah dari mode warna; default mode mengikuti perangkat dan bereaksi langsung saat preferensi OS berubah. Tidak ada migration baru. GitHub Release terbaru tetap `v1.0.0` pada commit `fe79904`. Production masih version `36b4df86-1f8f-4ddd-bc3f-7a6350e7e58a`; health 200 dan origin diproteksi Cloudflare Access.
 
 Keputusan dan hal penting:
 
@@ -25,13 +26,16 @@ Keputusan dan hal penting:
 - **Notifikasi transaksi**: `notifyTransactionCreated` (`src/services/transactions.ts`) membuat notifikasi `kind='transaction'` untuk pasangan saat income/expense dibuat (title: "X mencatat pengeluaran", body: "Rp50.000 — deskripsi"), dengan `dedupe_key transaction:{id}:{partnerId}`. Fan-out Web Push mencakup `kind IN ('reminder', 'budget_threshold', 'transaction')` dan route POST `/api/transactions` langsung memicu `deliverWebPushNotifications` via `executionCtx.waitUntil` sehingga push sampai tanpa menunggu schedule 15 menit.
 - **Detail riwayat transaksi**: area utama setiap row di `TransactionsPage.tsx` dapat ditekan untuk membuka dialog read-only berisi jenis, nominal, tanggal, pemilik, kategori, catatan lengkap, dan status Trash. Berlaku untuk transaksi sendiri/pasangan serta mutasi tabungan, menghormati hide balance, dapat ditutup dengan Escape, dan tampil sebagai bottom sheet di mobile. Tombol `•••` tetap khusus aksi mutation yang diizinkan.
 - **Kartu saldo dashboard**: judul kartu per pengguna memakai `displayName` akun dari API summary dan avatar memakai inisial nama; label ownership Milikmu/Pasangan tetap ditampilkan.
+- **Mode warna**: suasana `together`/`calm`/`minimal` disimpan di `rangkumin-theme`, sedangkan preferensi `system`/`light`/`dark` disimpan terpisah di `rangkumin-color-mode`. Bootstrap menerapkan pilihan sebelum React mount untuk mencegah flash; mode system mengikuti `prefers-color-scheme` secara live. Ketiga suasana memiliki palette dark sendiri.
+- **Filter transaksi lanjutan**: list aktif dan Trash mendukung `search`, `from`, `to`, `min_amount`, `max_amount`, dan sort whitelist `date_desc`/`date_asc`/`amount_desc`/`amount_asc`. Search memakai bind parameter dan wildcard `%`, `_`, `\` di-escape; UI memakai deferred value untuk input teks/nominal dan memvalidasi rentang sebelum request.
+- **GitHub Release**: release publik pertama `v1.0.0` dibuat manual dari commit `fe79904`; bukan draft atau prerelease. Release berikutnya tetap dibuat manual sesuai kebutuhan.
 - Service worker: handler `push` + `notificationclick`; deep link dikunci ke `/` karena SPA fallback (`not_found_handling: single-page-application`) belum diaktifkan.
 - VAPID secrets production: `WEB_PUSH_VAPID_SUBJECT`, `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY` via `scripts/set-web-push-secrets.mjs` (`npm run webpush:secrets:production`); config `config/web-push.production.local.json` di-ignore Git. `.dev.vars.example` hanya placeholder.
 - Migration `0005_telegram_delivery.sql`, `0006_import_jobs.sql`, `0007_web_push.sql`, dan `0008_disable_telegram_channel.sql` sudah diterapkan ke lokal, remote development, dan production. `0008` menormalkan channel aktif ke Dashboard/Web Push.
 - CSP/`_headers`: `img-src` + `blob:` untuk preview object URL struk; `Permissions-Policy: camera=(self)` untuk input kamera.
 - Phase 11 Import/Export: `src/routes/import-export.ts` + `src/services/{import,export}.ts`; export CSV per domain + Excel (papaparse, read-excel-file, write-excel-file, fflate); import CSV/Excel ber-job với preview/mapping/validasi/duplicate detection/atomic (`0006_import_jobs.sql`); UI `DataTransferPage.tsx` + `frontend/src/importExport.ts`.
 - Demo publik: `https://demo.rangkumin.dikadevit.my.id`, Worker `rangkumin-demo`, version `20bd2b77-1bdc-4770-a8df-ee9ef354f256`. Scan Struk, Web Push, dan Import/Export dinonaktifkan; transaksi, tabungan, anggaran, pengingat, Trash, dan notifikasi disimulasikan di memori tab. Smoke root 200 dan `/api/me` hanya mengembalikan SPA HTML, sehingga tidak ada backend API pada origin demo.
-- Test lokal terbaru: 109 Worker + 55 frontend = 164 (termasuk variasi respons receipt AI, retry malformed, label detail transaksi, demo no-network, web-push, receiptImage, import/export, dan notifikasi transaksi); typecheck, lint file perubahan, format, dan build hijau. Smoke production: health 200 dan endpoint diproteksi Access. Scan Struk sebelumnya sukses, lalu parser di-hardening untuk kegagalan respons AI dari foto galeri Android; popup detail transaksi sudah deployed tetapi perlu konfirmasi visual user di perangkat nyata. Web Push belum di-smoke-test perangkat nyata; import/export belum diuji penuh dua arah di production.
+- Test lokal terbaru: 111 Worker + 62 frontend = 173 (termasuk mode warna system/manual, serialisasi filter lanjutan, validasi rentang/sort, escaping LIKE, adapter demo, variasi respons receipt AI, label detail transaksi, web-push, receiptImage, dan import/export); typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Mode warna/filter baru belum di-smoke-test visual di perangkat nyata atau production. Web Push belum di-smoke-test perangkat nyata; import/export belum diuji penuh dua arah di production.
 - Residual: smoke test user kedua, smoke Web Push di perangkat nyata, uji installability/offline reload, audit accessibility mendalam, frontend E2E test.
 
 Jangan memasukkan email atau identifier pribadi ke Git.
@@ -97,7 +101,7 @@ Jangan memasukkan email atau identifier pribadi ke Git.
 ## Dashboard dan PWA
 
 - Visual minimalis, sederhana, dan terasa sebagai aplikasi tabungan pasangan.
-- Tema visual: Bersama, Tenang, dan Minimal dengan token CSS, disimpan lokal di key `rangkumin-theme`, default Bersama. Toggle otomatis light/dark mengikuti perangkat belum diterapkan (keputusan terbuka).
+- Tema visual: Bersama, Tenang, dan Minimal dengan token CSS, disimpan lokal di key `rangkumin-theme`, default Bersama. Mode warna disimpan di `rangkumin-color-mode`, default `system`, dengan opsi terang/gelap manual dan palette dark untuk setiap tema.
 - Dashboard mengutamakan dua ringkasan individu, lalu kartu ringkasan gabungan.
 - Grafik mencakup income vs expense, distribusi kategori, dan perkembangan tabungan.
 - Web harus responsive dan installable sebagai PWA; bukan aplikasi Android native.

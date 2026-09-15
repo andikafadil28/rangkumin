@@ -188,6 +188,28 @@ describe("transaction routes", () => {
     expect(response.status).toBe(400);
   });
 
+  it("menolak filter dengan rentang nominal terbalik", async () => {
+    const { environment, testApp } = createTestApp(createDatabase([]));
+    const response = await testApp.request(
+      "/transactions?min_amount=100000&max_amount=10000",
+      {},
+      environment,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it("menolak opsi urutan transaksi di luar whitelist", async () => {
+    const { environment, testApp } = createTestApp(createDatabase([]));
+    const response = await testApp.request(
+      "/transactions?sort=amount_drop_table",
+      {},
+      environment,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
   it("memakai bulan berjalan Asia/Jakarta untuk summary default", async () => {
     const database = createDatabase([
       {
