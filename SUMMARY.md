@@ -9,15 +9,15 @@
 - Production: `https://rangkumin.dikadevit.my.id`.
 - Demo publik: `https://demo.rangkumin.dikadevit.my.id`.
 - Repository: `https://github.com/andikafadil28/rangkumin`.
-- Release terbaru: `v1.0.0` (`https://github.com/andikafadil28/rangkumin/releases/tag/v1.0.0`).
+- Release terbaru: `v1.0.1` (`https://github.com/andikafadil28/rangkumin/releases/tag/v1.0.1`).
 - Author: Andika Fadil (`@andikafadil28`).
 - Donasi: `https://buymeacoffee.com/dikadev`.
 
 # CURRENT
 
-**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Mode warna otomatis/terang/gelap, filter transaksi lanjutan, dan Dashboard Insights sudah di-deploy ke production. **Telegram dipilih sebagai kanal notifikasi ketiga (re-enable infrastruktur historis); rencana disetujui, implementasi belum dimulai.** **Fitur Dompet (wallets) sedang diselesaikan: migration `0010_add_wallets.sql`, backend/wallet routes, `WalletsPage.tsx`, selector dompet di form transaksi, integrasi tabungan/ownership, dan adapter demo selesai; belum di-deploy ke remote/production/demo.** GitHub Release terbaru tetap `v1.0.0` pada commit `fe79904`. Demo publik frontend-only tetap aktif sebagai Static Assets terpisah tanpa binding backend.
+**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Mode warna otomatis/terang/gelap, filter transaksi lanjutan, Dashboard Insights, dan **fitur Dompet (wallets)** sudah di-deploy ke production, remote development, dan demo (migration `0010_add_wallets.sql`, backend `src/routes|services|schemas/wallet`, `WalletsPage.tsx`, selector dompet di form transaksi, integrasi tabungan/ownership, adapter demo). **Telegram tetap non-aktif**: hanya kandidat add-on opsional (infrastruktur historis dipertahankan), tanpa implementasi baru. GitHub Release terbaru `v1.0.1` pada commit `e50494d`. Demo publik frontend-only tetap aktif sebagai Static Assets terpisah tanpa binding backend.
 
-Snapshot lokal terbaru: **133 Worker test + 70 frontend test = 203**; typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Production version `fe586f95-c7d1-421f-87a6-101bdc36e4b1`; health 200 dan origin tetap diproteksi Access. Demo production version `9088ed20-46d5-46a3-91f4-3035a09f4548`.
+Snapshot lokal terbaru: **133 Worker test + 70 frontend test = 203**; typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Production version `a83b8138-8245-4d6e-b981-cfafb79f036d`; health 200 dan origin tetap diproteksi Access. Demo production version `fb719256-ec1a-40ca-96cb-4250dcd40771`.
 
 Dokumentasi mencakup README bilingual, setup guide teknis Indonesia/English, dan panduan instalasi pemula step-by-step Indonesia/English; masing-masing panduan tersedia sebagai PDF terpisah.
 
@@ -40,19 +40,20 @@ Fitur terbaru di production:
 - **Mode warna**: pilihan System/Terang/Gelap terpisah dari tema Bersama/Tenang/Minimal, bootstrap anti-flash, listener `prefers-color-scheme`, dan palette dark per tema.
 - **Filter transaksi lanjutan**: pencarian catatan, rentang tanggal dan nominal, sorting tanggal/nominal, reset filter, validasi client/server, dukungan Trash serta demo. Query search memakai bind parameter dan escaping wildcard LIKE.
 - **Dashboard Insights**: `/api/summary` menambahkan `comparison` (total bulan sebelumnya via satu query agregat `summarizeTransactionTotals` + `getPreviousMonthRange`; `null` jika hanya satu sisi tanggal yang dikirim). Panel insight menampilkan headline pengeluaran vs bulan lalu, kartu Pengeluaran/Pemasukan/Kategori terbesar, menghormati hide balance dan mode Bersama/Saya. Kategori terbesar hanya menghitung `expense` (koreksi dari sebelumnya yang ikut memasukkan income).
+- **Wallet/Dompet**: kelola dompet cash/bank/e_wallet/other dengan saldo awal, grup, warna, dompet utama, dan arsip; transfer antar dompet (`wallet_transfer`) atomik; detail mutasi dengan filter status rekonsiliasi; selector dompet di form transaksi (opsional). Sudah di-deploy ke production/demo; belum di-smoke-test perangkat nyata.
 
-Smoke production terakhir: health 200 dan protected origin → 302 Access. Belum di-smoke-test: Dashboard Insights, mode warna/filter baru secara visual di perangkat nyata, Web Push perangkat nyata, user kedua, installability/offline reload, E2E frontend, audit accessibility mendalam.
+Smoke production terakhir: health 200 dan protected origin → 302 Access. Belum di-smoke-test: Dashboard Insights, mode warna/filter, dan Dompet secara visual di perangkat nyata, Web Push perangkat nyata, user kedua, installability/offline reload, E2E frontend, audit accessibility mendalam.
 
 # DECISIONS
 
 - D1 = source of truth; Google Sheets hanya kandidat future update opsional tanpa timeline.
 - Login dua pengguna via Cloudflare Access; production hanya percaya JWT Access terverifikasi.
-- **Telegram dipilih sebagai kanal notifikasi ketiga.** Infrastruktur historis masih utuh; direncanakan dibangun ulang: `src/services/telegram.ts`, `src/services/telegram-deliveries.ts`, `src/routes/telegram.ts`, `0009_enable_telegram_channel.sql`, link flow `/start {CODE}`, toggle per jenis notifikasi. Implementasi belum dimulai.
-- Migration `0008_disable_telegram_channel.sql` sudah diterapkan lokal, remote development, dan production; `0009` mengikuti saat Telegram diimplementasikan.
+- **Telegram tetap non-aktif.** Runtime bot (routes/services/test/scripts) dihapus; migration history, kolom, dan channel `notify_telegram` dipertahankan sebagai kompatibilitas historis. Telegram hanya kandidat add-on opsional di future update; kanal aktif saat ini Dashboard + Web Push.
+- Migration `0008_disable_telegram_channel.sql` dan `0010_add_wallets.sql` sudah diterapkan lokal, remote development, dan production.
 - Scan Struk hasilnya draft (konfirmasi manual); foto tidak disimpan di storage mana pun; pricing/quota Workers AI wajib dicek dari dokumentasi resmi terbaru.
 - Web Push delivery terpisah dari koneksi klien; fan-out reminder/budget memakai `Promise.allSettled` agar tidak memblok schedule.
 - PWA: offline snapshot + outbox untuk create transaksi; edit/hapus/Trash/tabungan/rencana online-only.
-- **Dompet (wallets)**: saldo per dompet = `initial_balance` + income/withdrawal/transfer-in − expense/deposit/transfer-out; transfer antar dompet atomik dengan cek saldo; mutasi tabungan dan transfer dompet immutable; status rekonsiliasi `unreconciled`/`reconciled`/`excluded`. Belum di-deploy.
+- **Dompet (wallets)**: saldo per dompet = `initial_balance` + income/withdrawal/transfer-in − expense/deposit/transfer-out; transfer antar dompet atomik dengan cek saldo; mutasi tabungan dan transfer dompet immutable; status rekonsiliasi `unreconciled`/`reconciled`/`excluded`. Sudah di-deploy; belum di-smoke-test perangkat nyata.
 - Default currency IDR (integer), timezone Asia/Jakarta; Trash purged otomatis 30 hari.
 - Budget dan reminder menormalisasi `notify_web=1` (migration `0007`).
 
