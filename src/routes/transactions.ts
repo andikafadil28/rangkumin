@@ -21,6 +21,7 @@ import {
   updateTransaction,
 } from "../services/transactions";
 import { deliverWebPushNotifications } from "../services/web-push";
+import { listWallets } from "../services/wallets";
 import type { AppEnv } from "../types";
 import { getCurrentMonthRange, getPreviousMonthRange } from "../utils/date";
 
@@ -33,6 +34,8 @@ transactionRoutes.get("/", async (context) => {
       ownerUserId: query.owner,
       type: query.type,
       categoryId: query.category,
+      walletId: query.wallet,
+      reconciliationStatus: query.reconciliation_status,
       dateFrom: query.from,
       dateTo: query.to,
       search: query.search,
@@ -76,6 +79,7 @@ transactionRoutes.post("/", async (context) => {
       description: body.description ?? null,
       source: "web",
       idempotencyKey,
+      walletId: body.wallet_id,
     });
 
     if (result.replayed) {
@@ -151,6 +155,8 @@ transactionRoutes.patch(
           amount: body.amount,
           transactionDate: body.transaction_date,
           categoryId: body.category_id,
+          walletId: body.wallet_id,
+          reconciliationStatus: body.reconciliation_status,
           description: body.description,
         },
       });
@@ -219,6 +225,8 @@ transactionQueryRoutes.get("/trash", async (context) => {
       ownerUserId: query.owner,
       type: query.type,
       categoryId: query.category,
+      walletId: query.wallet,
+      reconciliationStatus: query.reconciliation_status,
       dateFrom: query.from,
       dateTo: query.to,
       search: query.search,
@@ -244,7 +252,7 @@ transactionQueryRoutes.get("/summary", async (context) => {
     const dateTo = query.to ?? (query.from ? undefined : defaultPeriod.to);
     const previousPeriod =
       dateFrom && dateTo ? getPreviousMonthRange(dateFrom) : null;
-    const [summary, previousTotals] = await Promise.all([
+    const [summary, previousTotals, wallets] = await Promise.all([
       summarizeTransactions(context.env.DB, {
         ownerUserId: query.owner,
         dateFrom,
@@ -257,7 +265,15 @@ transactionQueryRoutes.get("/summary", async (context) => {
             dateTo: previousPeriod.to,
           })
         : Promise.resolve(null),
+      listWallets(context.env.DB, {
+        ownerUserId: query.owner,
+        includeArchived: false,
+      }),
     ]);
+    const totalWalletBalance = wallets.reduce(
+      (total, wallet) => total + wallet.balance,
+      0,
+    );
 
     return context.json({
       period: { from: dateFrom, to: dateTo },
@@ -266,6 +282,19 @@ transactionQueryRoutes.get("/summary", async (context) => {
         previousPeriod && previousTotals
           ? { period: previousPeriod, combined: previousTotals }
           : null,
+      walletBreakdown: wallets.map((wallet) => ({
+        walletId: wallet.id,
+        ownerUserId: wallet.ownerUserId,
+        name: wallet.name,
+        type: wallet.type,
+        icon: wallet.icon,
+        color: wallet.color,
+        balance: wallet.balance,
+        percentage:
+          totalWalletBalance > 0
+            ? Math.round((wallet.balance / totalWalletBalance) * 10_000) / 100
+            : 0,
+      })),
     });
   } catch (error) {
     return respondWithError(context, error);

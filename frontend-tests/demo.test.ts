@@ -22,17 +22,61 @@ describe("demo frontend-only", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const identity = await demoRequestJson<{ user: { id: string } }>("/api/me");
-    const summary = await demoRequestJson<{ combined: { income: number } }>(
-      "/api/summary",
-    );
+    const summary = await demoRequestJson<{
+      combined: { income: number };
+      walletBreakdown: unknown[];
+    }>("/api/summary");
     const categories = await demoRequestJson<{ categories: unknown[] }>(
       "/api/categories?type=expense",
     );
 
     expect(identity.user.id).toBe("demo-user-1");
     expect(summary.combined.income).toBeGreaterThan(0);
+    expect(summary.walletBreakdown.length).toBeGreaterThan(0);
     expect(categories.categories.length).toBeGreaterThan(0);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("mensimulasikan CRUD dan transfer wallet tanpa backend", async () => {
+    const initial = await demoRequestJson<{
+      wallets: Array<{ id: string; ownerUserId: string; balance: number }>;
+    }>("/api/wallets");
+    const source = initial.wallets.find(
+      (wallet) => wallet.ownerUserId === "demo-user-1",
+    )!;
+    const created = await demoRequestJson<{
+      wallet: { id: string; balance: number };
+    }>("/api/wallets", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "cash",
+        name: "Cash Cadangan",
+        initial_balance: 100_000,
+      }),
+    });
+
+    await demoRequestJson("/api/wallets/transfer", {
+      method: "POST",
+      headers: { "Idempotency-Key": "demo-wallet-transfer-1" },
+      body: JSON.stringify({
+        source_wallet_id: source.id,
+        destination_wallet_id: created.wallet.id,
+        amount: 50_000,
+        transaction_date: "2026-09-17",
+      }),
+    });
+    const updated = await demoRequestJson<{
+      wallets: Array<{ id: string; balance: number }>;
+    }>("/api/wallets");
+
+    expect(
+      updated.wallets.find((wallet) => wallet.id === created.wallet.id)
+        ?.balance,
+    ).toBe(150_000);
+    const filtered = await demoRequestJson<{ total: number }>(
+      `/api/transactions?wallet=${created.wallet.id}&offset=0`,
+    );
+    expect(filtered.total).toBe(1);
   });
 
   it("menyimpan siklus transaksi hanya sampai store direset", async () => {

@@ -3,12 +3,15 @@ import {
   AuthRequiredError,
   NetworkError,
   commitImportFile,
+  createWallet,
   createTransaction,
   downloadFile,
   getTransactions,
+  getWallets,
   previewImport,
   requestJson,
   safeDownloadFilename,
+  transferBetweenWallets,
 } from "../frontend/src/api";
 
 afterEach(() => {
@@ -100,6 +103,7 @@ describe("requestJson", () => {
 
     await getTransactions({
       owner: "user-1",
+      wallet: "wallet-1",
       from: "2026-09-01",
       to: "2026-09-30",
       search: "belanja mingguan",
@@ -115,12 +119,56 @@ describe("requestJson", () => {
     );
     expect(Object.fromEntries(requested.searchParams)).toMatchObject({
       owner: "user-1",
+      wallet: "wallet-1",
       from: "2026-09-01",
       to: "2026-09-30",
       search: "belanja mingguan",
       min_amount: "10000",
       max_amount: "500000",
       sort: "amount_desc",
+    });
+  });
+
+  it("mengirim kontrak CRUD dan transfer wallet ke endpoint yang tepat", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ wallets: [], wallet: {}, transfer: {} }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getWallets({ owner: "user-1", includeArchived: true });
+    await createWallet({
+      type: "bank",
+      name: "Rekening Utama",
+      initial_balance: 500_000,
+    });
+    await transferBetweenWallets(
+      {
+        source_wallet_id: "wallet-1",
+        destination_wallet_id: "wallet-2",
+        amount: 100_000,
+        transaction_date: "2026-09-17",
+      },
+      "wallet-transfer-0001",
+    );
+
+    expect(fetchMock.mock.calls[0]![0]).toBe(
+      "/api/wallets?owner=user-1&archived=true",
+    );
+    expect(fetchMock.mock.calls[1]![0]).toBe("/api/wallets");
+    expect(fetchMock.mock.calls[1]![1]).toMatchObject({ method: "POST" });
+    expect(fetchMock.mock.calls[2]![0]).toBe("/api/wallets/transfer");
+    expect(fetchMock.mock.calls[2]![1]).toMatchObject({
+      method: "POST",
+      headers: expect.objectContaining({
+        "Idempotency-Key": "wallet-transfer-0001",
+      }),
     });
   });
 });

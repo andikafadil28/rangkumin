@@ -3,6 +3,7 @@ import {
   amountSchema,
   dateStringSchema,
   descriptionSchema,
+  walletIdSchema,
 } from "./transaction";
 
 export const savingsScopeSchema = z.enum(["personal", "shared"]);
@@ -54,10 +55,12 @@ export const savingsMutationSchema = z
     amount: amountSchema,
     transaction_date: dateStringSchema,
     description: descriptionSchema,
+    wallet_id: walletIdSchema.nullable().optional(),
   })
   .strict();
 
 export const savingsTransferSchema = savingsMutationSchema
+  .omit({ wallet_id: true })
   .extend({
     source_goal_id: z.string().trim().min(1).max(128),
     destination_goal_id: z.string().trim().min(1).max(128),

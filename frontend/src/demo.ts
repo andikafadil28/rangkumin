@@ -1,13 +1,17 @@
 import type {
   Budget,
   Category,
+  CreateWalletInput,
   Notification,
   Reminder,
   SavingsGoal,
   SavingsOverview,
   Summary,
   Transaction,
+  UpdateWalletInput,
   User,
+  Wallet,
+  WalletTransferInput,
 } from "./api";
 
 type DemoState = {
@@ -17,6 +21,7 @@ type DemoState = {
   budgets: Budget[];
   reminders: Reminder[];
   notifications: Notification[];
+  wallets: Wallet[];
   idempotency: Map<string, Transaction>;
 };
 
@@ -61,6 +66,7 @@ function category(id: string, type: Category["type"], name: string): Category {
 }
 
 function createInitialState(): DemoState {
+  const now = new Date().toISOString();
   const categories = [
     category("income-salary", "income", "Gaji"),
     category("income-freelance", "income", "Freelance"),
@@ -79,6 +85,62 @@ function createInitialState(): DemoState {
     const item = categories.find((entry) => entry.id === id)!;
     return { id: item.id, name: item.name };
   };
+  const wallets: Wallet[] = [
+    {
+      id: "wallet-demo-bank-1",
+      ownerUserId: users[0]!.id,
+      type: "bank",
+      name: "Rekening Utama",
+      description: "Rekening pemasukan utama",
+      icon: "bank",
+      color: "#507C6B",
+      groupName: "bank",
+      initialBalance: 0,
+      defaultWallet: true,
+      sortOrder: 0,
+      isArchived: false,
+      archivedAt: null,
+      balance: 0,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "wallet-demo-ewallet-1",
+      ownerUserId: users[0]!.id,
+      type: "e_wallet",
+      name: "E-Wallet Harian",
+      description: null,
+      icon: "smartphone",
+      color: "#CF7A5A",
+      groupName: "e_wallet",
+      initialBalance: 500_000,
+      defaultWallet: false,
+      sortOrder: 1,
+      isArchived: false,
+      archivedAt: null,
+      balance: 500_000,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "wallet-demo-bank-2",
+      ownerUserId: users[1]!.id,
+      type: "bank",
+      name: "Rekening Pasangan",
+      description: null,
+      icon: "bank",
+      color: "#6C78A8",
+      groupName: "bank",
+      initialBalance: 0,
+      defaultWallet: true,
+      sortOrder: 0,
+      isArchived: false,
+      archivedAt: null,
+      balance: 0,
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
   const transaction = (
     id: string,
     ownerUserId: string,
@@ -95,6 +157,27 @@ function createInitialState(): DemoState {
     description,
     transactionDate: localDate(day),
     categoryId,
+    walletId:
+      wallets.find(
+        (wallet) => wallet.ownerUserId === ownerUserId && wallet.defaultWallet,
+      )?.id ?? null,
+    wallet: (() => {
+      const wallet = wallets.find(
+        (entry) => entry.ownerUserId === ownerUserId && entry.defaultWallet,
+      );
+      return wallet
+        ? {
+            id: wallet.id,
+            name: wallet.name,
+            type: wallet.type,
+            icon: wallet.icon,
+            color: wallet.color,
+          }
+        : null;
+    })(),
+    sourceWallet: null,
+    destinationWallet: null,
+    reconciliationStatus: "unreconciled",
     version: 1,
     deletedAt: null,
     purgeAfter: null,
@@ -165,7 +248,6 @@ function createInitialState(): DemoState {
       "Nonton berdua",
     ),
   ];
-  const now = new Date().toISOString();
   return {
     categories,
     transactions,
@@ -302,6 +384,7 @@ function createInitialState(): DemoState {
         readAt: null,
       },
     ],
+    wallets,
     idempotency: new Map(),
   };
 }
@@ -322,9 +405,62 @@ function findCategory(categoryId: string) {
   return item;
 }
 
+function findWallet(walletId: string) {
+  const wallet = state.wallets.find((entry) => entry.id === walletId);
+  if (!wallet) throw new Error("Dompet demo tidak ditemukan.");
+  return wallet;
+}
+
 function recalculateGoal(goal: SavingsGoal) {
   goal.progressPercentage = goal.targetAmount
     ? Math.round((goal.balance / goal.targetAmount) * 10_000) / 100
+    : null;
+}
+
+function walletBalance(wallet: Wallet) {
+  return state.transactions
+    .filter((transaction) => !transaction.deletedAt)
+    .reduce((balance, transaction) => {
+      if (transaction.type === "income" && transaction.walletId === wallet.id)
+        return balance + transaction.amount;
+      if (
+        (transaction.type === "expense" ||
+          transaction.type === "saving_deposit") &&
+        transaction.walletId === wallet.id
+      )
+        return balance - transaction.amount;
+      if (
+        transaction.type === "saving_withdrawal" &&
+        transaction.walletId === wallet.id
+      )
+        return balance + transaction.amount;
+      if (
+        transaction.type === "wallet_transfer" &&
+        transaction.sourceWallet?.id === wallet.id
+      )
+        return balance - transaction.amount;
+      if (
+        transaction.type === "wallet_transfer" &&
+        transaction.destinationWallet?.id === wallet.id
+      )
+        return balance + transaction.amount;
+      return balance;
+    }, wallet.initialBalance);
+}
+
+function walletView(wallet: Wallet): Wallet {
+  return { ...wallet, balance: walletBalance(wallet) };
+}
+
+function walletReference(wallet: Wallet | undefined) {
+  return wallet
+    ? {
+        id: wallet.id,
+        name: wallet.name,
+        type: wallet.type,
+        icon: wallet.icon,
+        color: wallet.color,
+      }
     : null;
 }
 
@@ -380,6 +516,16 @@ function summary(owner?: string): Summary {
       ? { income: 8_200_000, expense: 1_050_000, net: 7_150_000 }
       : { income: 7_000_000, expense: 920_000, net: 6_080_000 }
     : { income: 15_200_000, expense: 1_970_000, net: 13_230_000 };
+  const wallets = state.wallets
+    .filter(
+      (wallet) =>
+        !wallet.isArchived && (!owner || wallet.ownerUserId === owner),
+    )
+    .map(walletView);
+  const totalWalletBalance = wallets.reduce(
+    (total, wallet) => total + wallet.balance,
+    0,
+  );
   return {
     period,
     byUser,
@@ -395,6 +541,19 @@ function summary(owner?: string): Summary {
       period: previousMonthPeriod(),
       combined: previous,
     },
+    walletBreakdown: wallets.map((wallet) => ({
+      walletId: wallet.id,
+      ownerUserId: wallet.ownerUserId,
+      name: wallet.name,
+      type: wallet.type,
+      icon: wallet.icon,
+      color: wallet.color,
+      balance: wallet.balance,
+      percentage:
+        totalWalletBalance > 0
+          ? Math.round((wallet.balance / totalWalletBalance) * 10_000) / 100
+          : 0,
+    })),
   };
 }
 
@@ -421,6 +580,8 @@ function listTransactions(url: URL, trashed = false) {
   const owner = url.searchParams.get("owner");
   const type = url.searchParams.get("type");
   const categoryId = url.searchParams.get("category");
+  const walletId = url.searchParams.get("wallet");
+  const reconciliationStatus = url.searchParams.get("reconciliation_status");
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
   const search = url.searchParams.get("search")?.toLocaleLowerCase("id-ID");
@@ -434,6 +595,18 @@ function listTransactions(url: URL, trashed = false) {
     .filter((item) => !owner || item.ownerUserId === owner)
     .filter((item) => !type || item.type === type)
     .filter((item) => !categoryId || item.categoryId === categoryId)
+    .filter(
+      (item) =>
+        !walletId ||
+        item.walletId === walletId ||
+        item.sourceWallet?.id === walletId ||
+        item.destinationWallet?.id === walletId,
+    )
+    .filter(
+      (item) =>
+        !reconciliationStatus ||
+        item.reconciliationStatus === reconciliationStatus,
+    )
     .filter((item) => !from || item.transactionDate >= from)
     .filter((item) => !to || item.transactionDate <= to)
     .filter(
@@ -543,6 +716,185 @@ export async function demoRequestJson<T>(
   if (pathname === "/api/receipt-scans") demoUnavailable("Scan Struk");
   if (pathname.startsWith("/api/import/")) demoUnavailable("Import data");
 
+  if (pathname === "/api/wallets" && method === "GET") {
+    const owner = url.searchParams.get("owner");
+    const includeArchived = url.searchParams.get("archived") === "true";
+    return clone({
+      wallets: state.wallets
+        .filter((wallet) => !owner || wallet.ownerUserId === owner)
+        .filter((wallet) => includeArchived || !wallet.isArchived)
+        .map(walletView),
+    }) as T;
+  }
+
+  if (pathname === "/api/wallets" && method === "POST") {
+    const input = parseBody<CreateWalletInput>(options);
+    if (
+      state.wallets.some(
+        (wallet) =>
+          wallet.ownerUserId === currentUser.id &&
+          !wallet.isArchived &&
+          wallet.name.toLocaleLowerCase("id-ID") ===
+            input.name.trim().toLocaleLowerCase("id-ID"),
+      )
+    )
+      throw new Error("Nama dompet sudah digunakan.");
+    const now = new Date().toISOString();
+    const shouldBeDefault =
+      input.default_wallet ||
+      !state.wallets.some(
+        (wallet) => wallet.ownerUserId === currentUser.id && !wallet.isArchived,
+      );
+    if (shouldBeDefault) {
+      for (const wallet of state.wallets) {
+        if (wallet.ownerUserId === currentUser.id) wallet.defaultWallet = false;
+      }
+    }
+    const wallet: Wallet = {
+      id: crypto.randomUUID(),
+      ownerUserId: currentUser.id,
+      type: input.type,
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      icon: input.icon?.trim() || null,
+      color: input.color?.toUpperCase() || null,
+      groupName: input.group_name?.trim() || input.type,
+      initialBalance: input.initial_balance ?? 0,
+      defaultWallet: Boolean(shouldBeDefault),
+      sortOrder: input.sort_order ?? 0,
+      isArchived: false,
+      archivedAt: null,
+      balance: input.initial_balance ?? 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    state.wallets.push(wallet);
+    return clone({ wallet: walletView(wallet) }) as T;
+  }
+
+  if (pathname === "/api/wallets/transfer" && method === "POST") {
+    const input = parseBody<WalletTransferInput>(options);
+    const key = new Headers(options.headers).get("Idempotency-Key");
+    const existing = key ? state.idempotency.get(key) : undefined;
+    if (existing?.type === "wallet_transfer") {
+      return clone({
+        transfer: {
+          id: existing.id,
+          actorUserId: existing.ownerUserId,
+          sourceWallet: existing.sourceWallet,
+          destinationWallet: existing.destinationWallet,
+          amount: existing.amount,
+          description: existing.description,
+          transactionDate: existing.transactionDate,
+          source: "web",
+          createdAt: new Date().toISOString(),
+        },
+      }) as T;
+    }
+    const source = findWallet(input.source_wallet_id);
+    const destination = findWallet(input.destination_wallet_id);
+    if (
+      source.ownerUserId !== currentUser.id ||
+      destination.ownerUserId !== currentUser.id ||
+      source.isArchived ||
+      destination.isArchived
+    )
+      throw new Error("Dompet demo tidak ditemukan.");
+    if (source.id === destination.id)
+      throw new Error("Dompet asal dan tujuan harus berbeda.");
+    if (walletBalance(source) < input.amount)
+      throw new Error("Saldo dompet tidak mencukupi.");
+    const transaction: Transaction = {
+      id: crypto.randomUUID(),
+      ownerUserId: currentUser.id,
+      type: "wallet_transfer",
+      amount: input.amount,
+      description: input.description?.trim() || null,
+      transactionDate: input.transaction_date,
+      categoryId: null,
+      category: null,
+      walletId: null,
+      wallet: null,
+      sourceWallet: { id: source.id, name: source.name },
+      destinationWallet: { id: destination.id, name: destination.name },
+      reconciliationStatus: "unreconciled",
+      version: 1,
+      deletedAt: null,
+      purgeAfter: null,
+    };
+    state.transactions.push(transaction);
+    if (key) state.idempotency.set(key, transaction);
+    return clone({
+      transfer: {
+        id: transaction.id,
+        actorUserId: transaction.ownerUserId,
+        sourceWallet: transaction.sourceWallet,
+        destinationWallet: transaction.destinationWallet,
+        amount: transaction.amount,
+        description: transaction.description,
+        transactionDate: transaction.transactionDate,
+        source: "web",
+        createdAt: new Date().toISOString(),
+      },
+    }) as T;
+  }
+
+  const walletMatch = pathname.match(
+    /^\/api\/wallets\/([^/]+)(?:\/(default|archive|unarchive))?$/,
+  );
+  if (walletMatch) {
+    const wallet = findWallet(walletMatch[1]!);
+    if (method === "GET" && !walletMatch[2])
+      return clone({ wallet: walletView(wallet) }) as T;
+    if (wallet.ownerUserId !== currentUser.id)
+      throw new Error("Dompet demo tidak ditemukan.");
+    if (method === "PATCH" && walletMatch[2] === "default") {
+      if (wallet.isArchived)
+        throw new Error("Dompet arsip tidak bisa dijadikan utama.");
+      for (const item of state.wallets) {
+        if (item.ownerUserId === currentUser.id) item.defaultWallet = false;
+      }
+      wallet.defaultWallet = true;
+      wallet.updatedAt = new Date().toISOString();
+      return clone({ wallet: walletView(wallet) }) as T;
+    }
+    if (method === "PATCH" && walletMatch[2] === "archive") {
+      if (wallet.defaultWallet)
+        throw new Error("Ganti dompet utama sebelum mengarsipkan dompet ini.");
+      wallet.isArchived = true;
+      wallet.archivedAt = new Date().toISOString();
+      wallet.updatedAt = wallet.archivedAt;
+      return clone({ wallet: walletView(wallet) }) as T;
+    }
+    if (method === "PATCH" && walletMatch[2] === "unarchive") {
+      wallet.isArchived = false;
+      wallet.archivedAt = null;
+      wallet.updatedAt = new Date().toISOString();
+      return clone({ wallet: walletView(wallet) }) as T;
+    }
+    if (method === "PATCH" && !walletMatch[2]) {
+      const input = parseBody<UpdateWalletInput>(options);
+      Object.assign(wallet, {
+        type: input.type ?? wallet.type,
+        name: input.name?.trim() ?? wallet.name,
+        description:
+          input.description === undefined
+            ? wallet.description
+            : input.description?.trim() || null,
+        icon:
+          input.icon === undefined ? wallet.icon : input.icon?.trim() || null,
+        color:
+          input.color === undefined
+            ? wallet.color
+            : input.color?.toUpperCase() || null,
+        groupName: input.group_name?.trim() ?? wallet.groupName,
+        sortOrder: input.sort_order ?? wallet.sortOrder,
+        updatedAt: new Date().toISOString(),
+      });
+      return clone({ wallet: walletView(wallet) }) as T;
+    }
+  }
+
   if (pathname === "/api/transactions" && method === "POST") {
     const input = parseBody<{
       type: "income" | "expense";
@@ -550,11 +902,17 @@ export async function demoRequestJson<T>(
       category_id: string;
       transaction_date: string;
       description?: string;
+      wallet_id?: string | null;
     }>(options);
     const key = new Headers(options.headers).get("Idempotency-Key");
     const existing = key ? state.idempotency.get(key) : undefined;
     if (existing) return clone({ transaction: existing }) as T;
     const selectedCategory = findCategory(input.category_id);
+    const selectedWallet = input.wallet_id
+      ? findWallet(input.wallet_id)
+      : undefined;
+    if (selectedWallet && selectedWallet.ownerUserId !== currentUser.id)
+      throw new Error("Dompet demo tidak ditemukan.");
     const transaction: Transaction = {
       id: crypto.randomUUID(),
       ownerUserId: currentUser.id,
@@ -564,6 +922,11 @@ export async function demoRequestJson<T>(
       transactionDate: input.transaction_date,
       categoryId: selectedCategory.id,
       category: { id: selectedCategory.id, name: selectedCategory.name },
+      walletId: selectedWallet?.id ?? null,
+      wallet: walletReference(selectedWallet),
+      sourceWallet: null,
+      destinationWallet: null,
+      reconciliationStatus: "unreconciled",
       version: 1,
       deletedAt: null,
       purgeAfter: null,
@@ -585,8 +948,13 @@ export async function demoRequestJson<T>(
       category_id: string;
       transaction_date: string;
       description: string | null;
+      wallet_id?: string | null;
+      reconciliation_status?: Transaction["reconciliationStatus"];
     }>(options);
     const selectedCategory = findCategory(input.category_id);
+    const selectedWallet = input.wallet_id
+      ? findWallet(input.wallet_id)
+      : undefined;
     Object.assign(transaction, {
       type: input.type,
       amount: input.amount,
@@ -594,6 +962,10 @@ export async function demoRequestJson<T>(
       transactionDate: input.transaction_date,
       categoryId: selectedCategory.id,
       category: { id: selectedCategory.id, name: selectedCategory.name },
+      walletId: selectedWallet?.id ?? null,
+      wallet: walletReference(selectedWallet),
+      reconciliationStatus:
+        input.reconciliation_status ?? transaction.reconciliationStatus,
       version: (transaction.version ?? 1) + 1,
     });
     return clone({ transaction }) as T;
@@ -651,6 +1023,11 @@ export async function demoRequestJson<T>(
       transactionDate: input.transaction_date,
       categoryId: null,
       category: null,
+      walletId: null,
+      wallet: null,
+      sourceWallet: null,
+      destinationWallet: null,
+      reconciliationStatus: "unreconciled",
       version: 1,
       deletedAt: null,
       purgeAfter: null,
@@ -677,11 +1054,21 @@ export async function demoRequestJson<T>(
         amount: number;
         transaction_date: string;
         description?: string;
+        wallet_id?: string | null;
       }>(options);
+      const selectedWallet = input.wallet_id
+        ? findWallet(input.wallet_id)
+        : undefined;
+      if (selectedWallet && selectedWallet.ownerUserId !== currentUser.id)
+        throw new Error("Dompet demo tidak ditemukan.");
       const cashBalance = savingsOverview().cashBalances.find(
         (item) => item.userId === currentUser.id,
       )!.balance;
-      if (goalMatch[2] === "deposits" && cashBalance < input.amount)
+      if (
+        goalMatch[2] === "deposits" &&
+        (selectedWallet ? walletBalance(selectedWallet) : cashBalance) <
+          input.amount
+      )
         throw new Error("Saldo tunai tidak mencukupi.");
       if (goalMatch[2] === "withdrawals" && goal.balance < input.amount)
         throw new Error("Saldo pos tabungan tidak mencukupi.");
@@ -700,6 +1087,11 @@ export async function demoRequestJson<T>(
         transactionDate: input.transaction_date,
         categoryId: null,
         category: null,
+        walletId: selectedWallet?.id ?? null,
+        wallet: walletReference(selectedWallet),
+        sourceWallet: null,
+        destinationWallet: null,
+        reconciliationStatus: "unreconciled",
         version: 1,
         deletedAt: null,
         purgeAfter: null,
@@ -851,6 +1243,27 @@ export async function demoRequestJson<T>(
 
 export async function demoSendWithoutResponse(path: string, method: string) {
   const url = new URL(path, "https://demo.rangkumin.invalid");
+  const walletMatch = url.pathname.match(/^\/api\/wallets\/([^/]+)$/);
+  if (walletMatch && method === "DELETE") {
+    const index = state.wallets.findIndex(
+      (wallet) => wallet.id === walletMatch[1],
+    );
+    if (index < 0 || state.wallets[index]!.ownerUserId !== currentUser.id)
+      throw new Error("Dompet demo tidak ditemukan.");
+    const wallet = state.wallets[index]!;
+    const hasTransactions = state.transactions.some(
+      (transaction) =>
+        transaction.walletId === wallet.id ||
+        transaction.sourceWallet?.id === wallet.id ||
+        transaction.destinationWallet?.id === wallet.id,
+    );
+    if (walletBalance(wallet) !== 0 || hasTransactions)
+      throw new Error(
+        "Dompet dengan saldo atau riwayat transaksi tidak bisa dihapus.",
+      );
+    state.wallets.splice(index, 1);
+    return;
+  }
   const notificationMatch = url.pathname.match(
     /^\/api\/notifications\/([^/]+)\/read$/,
   );

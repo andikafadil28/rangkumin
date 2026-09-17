@@ -24,6 +24,7 @@ export const transactionTypeSchema = z.enum([
   "saving_deposit",
   "saving_withdrawal",
   "saving_transfer",
+  "wallet_transfer",
 ]);
 
 export const incomeExpenseTypeSchema = z.enum(["income", "expense"]);
@@ -53,12 +54,25 @@ export const categoryIdSchema = z
   .min(1, "Kategori wajib diisi.")
   .max(128, "Kategori tidak valid.");
 
+export const walletIdSchema = z
+  .string()
+  .trim()
+  .min(1, "Dompet tidak valid.")
+  .max(128, "Dompet tidak valid.");
+
+export const reconciliationStatusSchema = z.enum([
+  "unreconciled",
+  "reconciled",
+  "excluded",
+]);
+
 export const createTransactionSchema = z
   .object({
     type: incomeExpenseTypeSchema,
     amount: amountSchema,
     transaction_date: dateStringSchema,
     category_id: categoryIdSchema,
+    wallet_id: walletIdSchema.nullable().optional(),
     description: descriptionSchema,
   })
   .strict();
@@ -73,6 +87,8 @@ export const updateTransactionSchema = z
     amount: amountSchema.optional(),
     transaction_date: dateStringSchema.optional(),
     category_id: categoryIdSchema.optional(),
+    wallet_id: walletIdSchema.nullable().optional(),
+    reconciliation_status: reconciliationStatusSchema.optional(),
     description: descriptionSchema,
   })
   .strict()
@@ -82,6 +98,8 @@ export const updateTransactionSchema = z
       value.amount !== undefined ||
       value.transaction_date !== undefined ||
       value.category_id !== undefined ||
+      value.wallet_id !== undefined ||
+      value.reconciliation_status !== undefined ||
       value.description !== undefined,
     "Minimal satu field yang diperbarui wajib diisi.",
   );
@@ -99,6 +117,8 @@ export const listTransactionsQuerySchema = z
     owner: z.string().trim().min(1).max(128).optional(),
     type: transactionTypeSchema.optional(),
     category: categoryIdSchema.optional(),
+    wallet: walletIdSchema.optional(),
+    reconciliation_status: reconciliationStatusSchema.optional(),
     from: dateStringSchema.optional(),
     to: dateStringSchema.optional(),
     search: z.string().trim().min(1).max(100).optional(),

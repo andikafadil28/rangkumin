@@ -49,6 +49,7 @@ function mutationRow(overrides: Record<string, unknown> = {}) {
     type: "saving_transfer",
     source_savings_goal_id: "goal-1",
     destination_savings_goal_id: "goal-2",
+    wallet_id: null,
     amount: 100000,
     description: null,
     transaction_date: "2026-09-05",
@@ -57,6 +58,7 @@ function mutationRow(overrides: Record<string, unknown> = {}) {
     created_at: "2026-09-05T00:00:00.000Z",
     source_goal_name: "Darurat",
     destination_goal_name: "Liburan",
+    wallet_name: null,
     ...overrides,
   };
 }
@@ -141,6 +143,50 @@ describe("savings mutations", () => {
     );
   });
 
+  it("mengecek saldo wallet secara atomik saat deposit", async () => {
+    let keyLookup = 0;
+    const database = createDatabase((sql) => {
+      if (sql.includes("t.idempotency_key = ?1")) {
+        keyLookup += 1;
+        return {
+          first: () =>
+            keyLookup === 1
+              ? null
+              : mutationRow({
+                  type: "saving_deposit",
+                  source_savings_goal_id: null,
+                  destination_savings_goal_id: "goal-2",
+                  wallet_id: "wallet-1",
+                  wallet_name: "Rekening Utama",
+                }),
+        };
+      }
+      if (sql.includes("INSERT INTO transactions")) return { changes: 1 };
+      return {};
+    });
+
+    const result = await depositToSavings(database, {
+      actorUserId: "user-1",
+      destinationGoalId: "goal-2",
+      walletId: "wallet-1",
+      amount: 100000,
+      description: null,
+      transactionDate: "2026-09-05",
+      idempotencyKey: "saving-wallet-0001",
+    });
+
+    expect(result.mutation.wallet).toEqual({
+      id: "wallet-1",
+      name: "Rekening Utama",
+    });
+    const insert = database.sql.find((sql) =>
+      sql.includes("INSERT INTO transactions"),
+    );
+    expect(insert).toContain("destination_savings_goal_id, wallet_id");
+    expect(insert).toContain("w.initial_balance");
+    expect(insert).toContain("w.owner_user_id = ?2");
+  });
+
   it("menolak deposit saat saldo tunai tidak cukup", async () => {
     const database = createDatabase((sql) => {
       if (sql.includes("t.idempotency_key = ?1")) {
@@ -201,6 +247,7 @@ describe("savings mutations", () => {
       { userId: "user-1", balance: 500000 },
       { userId: "user-2", balance: 750000 },
     ]);
+    expect(database.sql[0]).not.toContain("wallet_transfer");
   });
 });
 

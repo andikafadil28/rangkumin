@@ -1,6 +1,52 @@
 import { DEMO_MODE } from "./demoMode";
 
 export type User = { id: string; displayName: string };
+export type WalletType = "cash" | "bank" | "e_wallet" | "other";
+export type ReconciliationStatus = "unreconciled" | "reconciled" | "excluded";
+export type Wallet = {
+  id: string;
+  ownerUserId: string;
+  type: WalletType;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  groupName: string;
+  initialBalance: number;
+  defaultWallet: boolean;
+  sortOrder: number;
+  isArchived: boolean;
+  archivedAt: string | null;
+  balance: number;
+  createdAt: string;
+  updatedAt: string;
+};
+export type WalletGroup = {
+  name: string;
+  label: string;
+  wallets: Wallet[];
+};
+export type CreateWalletInput = {
+  type: WalletType;
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  color?: string | null;
+  group_name?: string;
+  initial_balance?: number;
+  default_wallet?: boolean;
+  sort_order?: number;
+};
+export type UpdateWalletInput = Partial<
+  Omit<CreateWalletInput, "initial_balance" | "default_wallet">
+>;
+export type WalletTransferInput = {
+  source_wallet_id: string;
+  destination_wallet_id: string;
+  amount: number;
+  transaction_date: string;
+  description?: string;
+};
 export type SummaryItem = {
   userId: string;
   displayName: string;
@@ -19,6 +65,16 @@ export type Summary = {
     period: { from: string; to: string };
     combined: SummaryTotals;
   } | null;
+  walletBreakdown: Array<{
+    walletId: string;
+    ownerUserId: string;
+    name: string;
+    type: WalletType;
+    icon: string | null;
+    color: string | null;
+    balance: number;
+    percentage: number;
+  }>;
 };
 export type SavingsGoal = {
   id: string;
@@ -43,11 +99,23 @@ export type Transaction = {
     | "expense"
     | "saving_deposit"
     | "saving_withdrawal"
-    | "saving_transfer";
+    | "saving_transfer"
+    | "wallet_transfer";
   amount: number;
   description: string | null;
   transactionDate: string;
   categoryId?: string | null;
+  walletId: string | null;
+  wallet: {
+    id: string;
+    name: string;
+    type: string;
+    icon: string | null;
+    color: string | null;
+  } | null;
+  sourceWallet: { id: string; name: string } | null;
+  destinationWallet: { id: string; name: string } | null;
+  reconciliationStatus: ReconciliationStatus;
   version?: number;
   deletedAt?: string | null;
   purgeAfter?: string | null;
@@ -111,6 +179,7 @@ export type CreateTransactionInput = {
   category_id: string;
   transaction_date: string;
   description?: string;
+  wallet_id?: string | null;
 };
 
 export class ApiError extends Error {
@@ -408,6 +477,8 @@ export async function getTransactions(
   filters: {
     type?: string;
     category?: string;
+    wallet?: string;
+    reconciliationStatus?: ReconciliationStatus;
     owner?: string;
     from?: string;
     to?: string;
@@ -427,6 +498,9 @@ export async function getTransactions(
   });
   if (filters.type) query.set("type", filters.type);
   if (filters.category) query.set("category", filters.category);
+  if (filters.wallet) query.set("wallet", filters.wallet);
+  if (filters.reconciliationStatus)
+    query.set("reconciliation_status", filters.reconciliationStatus);
   if (filters.owner) query.set("owner", filters.owner);
   if (filters.from) query.set("from", filters.from);
   if (filters.to) query.set("to", filters.to);
@@ -447,6 +521,7 @@ export async function getTransactions(
 export async function getTrashedTransactions(
   filters: {
     owner?: string;
+    wallet?: string;
     from?: string;
     to?: string;
     search?: string;
@@ -462,6 +537,7 @@ export async function getTrashedTransactions(
     offset: String(filters.offset),
   });
   if (filters.owner) query.set("owner", filters.owner);
+  if (filters.wallet) query.set("wallet", filters.wallet);
   if (filters.from) query.set("from", filters.from);
   if (filters.to) query.set("to", filters.to);
   if (filters.search) query.set("search", filters.search);
@@ -511,6 +587,8 @@ export function updateTransaction(
     category_id: string;
     transaction_date: string;
     description: string | null;
+    wallet_id?: string | null;
+    reconciliation_status?: ReconciliationStatus;
   },
 ) {
   return sendJson<{ transaction: Transaction }>(
@@ -635,7 +713,12 @@ export function setSavingsGoalArchived(goalId: string, archived: boolean) {
 export function mutateSavingsGoal(
   goalId: string,
   kind: "deposits" | "withdrawals",
-  input: { amount: number; transaction_date: string; description?: string },
+  input: {
+    amount: number;
+    transaction_date: string;
+    description?: string;
+    wallet_id?: string | null;
+  },
 ) {
   return sendJson<{ mutation: unknown }>(
     `/api/savings/goals/${goalId}/${kind}`,
@@ -660,6 +743,91 @@ export function transferSavings(input: {
 
 export function getSavingsOverview(signal?: AbortSignal) {
   return getJson<SavingsOverview>("/api/savings/overview", signal);
+}
+
+export function getWallets(
+  filters: { owner?: string; includeArchived?: boolean } = {},
+  signal?: AbortSignal,
+) {
+  const query = new URLSearchParams();
+  if (filters.owner) query.set("owner", filters.owner);
+  if (filters.includeArchived) query.set("archived", "true");
+  const suffix = query.size ? `?${query}` : "";
+  return getJson<{ wallets: Wallet[] }>(`/api/wallets${suffix}`, signal);
+}
+
+export function getWallet(walletId: string, signal?: AbortSignal) {
+  return getJson<{ wallet: Wallet }>(
+    `/api/wallets/${encodeURIComponent(walletId)}`,
+    signal,
+  );
+}
+
+export function createWallet(input: CreateWalletInput) {
+  return sendJson<{ wallet: Wallet }>("/api/wallets", input);
+}
+
+export function updateWallet(walletId: string, input: UpdateWalletInput) {
+  return sendJson<{ wallet: Wallet }>(
+    `/api/wallets/${encodeURIComponent(walletId)}`,
+    input,
+    { method: "PATCH" },
+  );
+}
+
+function patchWalletAction(
+  walletId: string,
+  action: "default" | "archive" | "unarchive",
+) {
+  return requestJson<{ wallet: Wallet }>(
+    `/api/wallets/${encodeURIComponent(walletId)}/${action}`,
+    { method: "PATCH", headers: { "Content-Type": "application/json" } },
+  );
+}
+
+export function setDefaultWallet(walletId: string) {
+  return patchWalletAction(walletId, "default");
+}
+
+export function archiveWallet(walletId: string) {
+  return patchWalletAction(walletId, "archive");
+}
+
+export function unarchiveWallet(walletId: string) {
+  return patchWalletAction(walletId, "unarchive");
+}
+
+export function deleteWallet(walletId: string) {
+  return sendWithoutResponse(
+    `/api/wallets/${encodeURIComponent(walletId)}`,
+    "DELETE",
+  );
+}
+
+export function transferBetweenWallets(
+  input: WalletTransferInput,
+  idempotencyKey: string = crypto.randomUUID(),
+) {
+  return requestJson<{
+    transfer: {
+      id: string;
+      actorUserId: string;
+      sourceWallet: { id: string; name: string };
+      destinationWallet: { id: string; name: string };
+      amount: number;
+      description: string | null;
+      transactionDate: string;
+      source: "web" | "telegram" | "import";
+      createdAt: string;
+    };
+  }>("/api/wallets/transfer", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+    },
+    body: JSON.stringify(input),
+  });
 }
 
 export function getBudgets(signal?: AbortSignal) {

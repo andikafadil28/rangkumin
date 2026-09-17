@@ -12,6 +12,7 @@ import {
   transactionQueryRoutes,
   transactionRoutes,
 } from "./routes/transactions";
+import { walletRoutes } from "./routes/wallets";
 import { webPushRoutes } from "./routes/web-push";
 import { evaluateBudgetAlerts } from "./services/budgets";
 import {
@@ -58,6 +59,7 @@ protectedApi.route("/receipt-scans", receiptScanRoutes);
 protectedApi.route("/reminders", reminderRoutes);
 protectedApi.route("/savings", savingsRoutes);
 protectedApi.route("/transactions", transactionRoutes);
+protectedApi.route("/wallets", walletRoutes);
 protectedApi.route("/", transactionQueryRoutes);
 
 app.route("/api", protectedApi);

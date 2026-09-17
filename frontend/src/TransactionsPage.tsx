@@ -5,13 +5,14 @@ import {
   deleteTransaction,
   getCategories,
   getTransactions,
+  getWallets,
   getTrashedTransactions,
   purgeTransaction,
   restoreTransaction,
   scanReceipt,
   updateTransaction,
 } from "./api";
-import type { Category, Transaction } from "./api";
+import type { Category, Transaction, Wallet } from "./api";
 import { loadWithSnapshot } from "./offline/snapshots";
 import { getOutboxItems } from "./offline/db";
 import type { TransactionOutboxItem } from "./offline/db";
@@ -90,6 +91,7 @@ export function transactionTypeLabel(type: Transaction["type"]) {
     saving_deposit: "Setoran tabungan",
     saving_withdrawal: "Penarikan tabungan",
     saving_transfer: "Transfer tabungan",
+    wallet_transfer: "Transfer dompet",
   };
   return labels[type];
 }
@@ -150,14 +152,18 @@ function TransactionForm({
   categories,
   actorUserId,
   online,
+  wallets,
+  presetWalletId,
   onClose,
   onSaved,
 }: {
   initialType: TransactionType;
   transaction?: Transaction;
   categories: Category[];
+  wallets: Wallet[];
   actorUserId: string;
   online: boolean;
+  presetWalletId?: string | null;
   onClose: () => void;
   onSaved: (queued: boolean) => void;
 }) {
@@ -174,6 +180,29 @@ function TransactionForm({
   const [description, setDescription] = useState(
     transaction?.description ?? "",
   );
+  const editingWallet = transaction?.walletId ? transaction.wallet : null;
+  const presetWallet = presetWalletId
+    ? wallets.find((wallet) => wallet.id === presetWalletId)
+    : null;
+  const [walletId, setWalletId] = useState(
+    transaction
+      ? (transaction.walletId ?? "")
+      : (presetWallet?.id ??
+          wallets.find((wallet) => wallet.defaultWallet)?.id ??
+          ""),
+  );
+  const walletOptions = [
+    ...(editingWallet &&
+    !wallets.some((wallet) => wallet.id === editingWallet.id)
+      ? [
+          {
+            id: editingWallet.id,
+            label: `${editingWallet.name} (Arsip)`,
+          },
+        ]
+      : []),
+    ...wallets.map((wallet) => ({ id: wallet.id, label: wallet.name })),
+  ];
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldsDirty, setFieldsDirty] = useState(false);
@@ -269,6 +298,7 @@ function TransactionForm({
         amount: numericAmount,
         category_id: categoryId,
         transaction_date: date,
+        wallet_id: walletId || null,
       };
       if (transaction) {
         if (!online) {
@@ -478,6 +508,29 @@ function TransactionForm({
               />
             </label>
           </div>
+          {walletOptions.length > 0 && (
+            <label>
+              <span>Dompet</span>
+              <select
+                value={
+                  walletOptions.some((option) => option.id === walletId)
+                    ? walletId
+                    : ""
+                }
+                onChange={(event) => {
+                  setFieldsDirty(true);
+                  setWalletId(event.target.value);
+                }}
+              >
+                <option value="">Tanpa dompet</option>
+                {walletOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label>
             <span>
               Catatan <small>Opsional</small>
@@ -692,6 +745,8 @@ export function TransactionsPage({
   hidden,
   intent,
   onIntentHandled,
+  walletIntent,
+  onWalletIntentHandled,
   openTrash,
   onTrashHandled,
   online,
@@ -703,12 +758,15 @@ export function TransactionsPage({
   hidden: boolean;
   intent: TransactionType | null;
   onIntentHandled: () => void;
+  walletIntent: { walletId: string } | null;
+  onWalletIntentHandled: () => void;
   openTrash: boolean;
   onTrashHandled: () => void;
   online: boolean;
 }) {
   const [items, setItems] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [wallets, setWallets] = useState<Wallet[]>([]);
   const [total, setTotal] = useState(0);
   const [type, setType] = useState("");
   const [owner, setOwner] = useState(() => (viewMode === "solo" ? userId : ""));
@@ -770,6 +828,20 @@ export function TransactionsPage({
       setOffset(0);
     }
   }, [viewMode, userId, owner]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadWithSnapshot(userId, "wallets", () => getWallets({}, controller.signal))
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setWallets(result.data.wallets);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setWallets([]);
+      });
+    return () => controller.abort();
+  }, [userId]);
 
   useEffect(() => {
     if (!openTrash) return;
@@ -915,6 +987,7 @@ export function TransactionsPage({
     setFormType(null);
     setEditing(null);
     onIntentHandled();
+    onWalletIntentHandled();
   }
 
   function savedTransaction(queued: boolean) {
@@ -1338,8 +1411,12 @@ export function TransactionsPage({
           }
           transaction={editing ?? undefined}
           categories={categories}
+          wallets={wallets.filter(
+            (wallet) => wallet.ownerUserId === userId && !wallet.isArchived,
+          )}
           actorUserId={userId}
           online={online && !stale}
+          presetWalletId={walletIntent?.walletId}
           onClose={closeForm}
           onSaved={savedTransaction}
         />

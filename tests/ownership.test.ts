@@ -8,10 +8,12 @@ import {
 } from "../src/middleware/ownership";
 import type { AppEnv } from "../src/types";
 
-function createTestApp(ownerUserId: string | null) {
+function createTestApp(ownerUserId: string | null, type?: string) {
   const first = vi
     .fn()
-    .mockResolvedValue(ownerUserId ? { owner_user_id: ownerUserId } : null);
+    .mockResolvedValue(
+      ownerUserId ? { owner_user_id: ownerUserId, type } : null,
+    );
   const bind = vi.fn().mockReturnValue({ first });
   const prepare = vi.fn().mockReturnValue({ bind });
   const environment = {
@@ -92,6 +94,17 @@ describe("transactionOwnershipGuard", () => {
 
     expect(response.status).toBe(404);
     expect(prepare).not.toHaveBeenCalled();
+  });
+
+  it("menjaga transfer wallet tetap immutable", async () => {
+    const { environment, testApp } = createTestApp("user-1", "wallet_transfer");
+    const response = await testApp.request(
+      "/transactions/transfer-1",
+      { method: "PATCH" },
+      environment,
+    );
+
+    expect(response.status).toBe(409);
   });
 });
 

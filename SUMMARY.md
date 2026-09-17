@@ -15,9 +15,9 @@
 
 # CURRENT
 
-**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Mode warna otomatis/terang/gelap, filter transaksi lanjutan, dan Dashboard Insights sudah di-deploy ke production. GitHub Release terbaru tetap `v1.0.0` pada commit `fe79904`. Demo publik frontend-only tetap aktif sebagai Static Assets terpisah tanpa binding backend.
+**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Mode warna otomatis/terang/gelap, filter transaksi lanjutan, dan Dashboard Insights sudah di-deploy ke production. **Telegram dipilih sebagai kanal notifikasi ketiga (re-enable infrastruktur historis); rencana disetujui, implementasi belum dimulai.** **Fitur Dompet (wallets) sedang diselesaikan: migration `0010_add_wallets.sql`, backend/wallet routes, `WalletsPage.tsx`, selector dompet di form transaksi, integrasi tabungan/ownership, dan adapter demo selesai; belum di-deploy ke remote/production/demo.** GitHub Release terbaru tetap `v1.0.0` pada commit `fe79904`. Demo publik frontend-only tetap aktif sebagai Static Assets terpisah tanpa binding backend.
 
-Snapshot lokal terbaru: **113 Worker test + 65 frontend test = 178**; typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Production version `fe586f95-c7d1-421f-87a6-101bdc36e4b1`; health 200 dan origin tetap diproteksi Access. Demo production version `9088ed20-46d5-46a3-91f4-3035a09f4548`.
+Snapshot lokal terbaru: **133 Worker test + 70 frontend test = 203**; typecheck, lint file perubahan, format, build, dan query D1 lokal hijau. Production version `fe586f95-c7d1-421f-87a6-101bdc36e4b1`; health 200 dan origin tetap diproteksi Access. Demo production version `9088ed20-46d5-46a3-91f4-3035a09f4548`.
 
 Dokumentasi mencakup README bilingual, setup guide teknis Indonesia/English, dan panduan instalasi pemula step-by-step Indonesia/English; masing-masing panduan tersedia sebagai PDF terpisah.
 
@@ -47,11 +47,12 @@ Smoke production terakhir: health 200 dan protected origin → 302 Access. Belum
 
 - D1 = source of truth; Google Sheets hanya kandidat future update opsional tanpa timeline.
 - Login dua pengguna via Cloudflare Access; production hanya percaya JWT Access terverifikasi.
-- **Telegram tidak aktif**: kanal aktif Dashboard + Web Push; channel `notify_telegram` dan migration history dipertahankan sebagai kompatibilitas, sedangkan integrasi baru hanya roadmap opsional.
-- Migration `0008_disable_telegram_channel.sql` menormalkan preference Telegram historis ke Web Push dan mencegah notification dead record; sudah diterapkan lokal, remote development, dan production.
+- **Telegram dipilih sebagai kanal notifikasi ketiga.** Infrastruktur historis masih utuh; direncanakan dibangun ulang: `src/services/telegram.ts`, `src/services/telegram-deliveries.ts`, `src/routes/telegram.ts`, `0009_enable_telegram_channel.sql`, link flow `/start {CODE}`, toggle per jenis notifikasi. Implementasi belum dimulai.
+- Migration `0008_disable_telegram_channel.sql` sudah diterapkan lokal, remote development, dan production; `0009` mengikuti saat Telegram diimplementasikan.
 - Scan Struk hasilnya draft (konfirmasi manual); foto tidak disimpan di storage mana pun; pricing/quota Workers AI wajib dicek dari dokumentasi resmi terbaru.
 - Web Push delivery terpisah dari koneksi klien; fan-out reminder/budget memakai `Promise.allSettled` agar tidak memblok schedule.
 - PWA: offline snapshot + outbox untuk create transaksi; edit/hapus/Trash/tabungan/rencana online-only.
+- **Dompet (wallets)**: saldo per dompet = `initial_balance` + income/withdrawal/transfer-in − expense/deposit/transfer-out; transfer antar dompet atomik dengan cek saldo; mutasi tabungan dan transfer dompet immutable; status rekonsiliasi `unreconciled`/`reconciled`/`excluded`. Belum di-deploy.
 - Default currency IDR (integer), timezone Asia/Jakarta; Trash purged otomatis 30 hari.
 - Budget dan reminder menormalisasi `notify_web=1` (migration `0007`).
 

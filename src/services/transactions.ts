@@ -10,7 +10,10 @@ export type TransactionType =
   | "expense"
   | "saving_deposit"
   | "saving_withdrawal"
-  | "saving_transfer";
+  | "saving_transfer"
+  | "wallet_transfer";
+
+export type ReconciliationStatus = "unreconciled" | "reconciled" | "excluded";
 
 export type TransactionRow = {
   id: string;
@@ -19,6 +22,10 @@ export type TransactionRow = {
   category_id: string | null;
   source_savings_goal_id: string | null;
   destination_savings_goal_id: string | null;
+  wallet_id: string | null;
+  source_wallet_id: string | null;
+  destination_wallet_id: string | null;
+  reconciliation_status: ReconciliationStatus;
   amount: number;
   description: string | null;
   transaction_date: string;
@@ -31,6 +38,12 @@ export type TransactionRow = {
   updated_at: string;
   category_name?: string | null;
   category_type?: string | null;
+  wallet_name?: string | null;
+  wallet_type?: string | null;
+  wallet_icon?: string | null;
+  wallet_color?: string | null;
+  source_wallet_name?: string | null;
+  destination_wallet_name?: string | null;
 };
 
 export type TransactionDetail = {
@@ -39,6 +52,17 @@ export type TransactionDetail = {
   type: TransactionType;
   amount: number;
   categoryId: string | null;
+  walletId: string | null;
+  wallet: {
+    id: string;
+    name: string;
+    type: string;
+    icon: string | null;
+    color: string | null;
+  } | null;
+  sourceWallet: { id: string; name: string } | null;
+  destinationWallet: { id: string; name: string } | null;
+  reconciliationStatus: ReconciliationStatus;
   description: string | null;
   transactionDate: string;
   source: "web" | "telegram" | "import";
@@ -59,6 +83,7 @@ export type CreateTransactionInput = {
   description: string | null;
   source: "web" | "telegram";
   idempotencyKey: string;
+  walletId?: string | null;
 };
 
 export type UpdateTransactionPatch = {
@@ -67,6 +92,8 @@ export type UpdateTransactionPatch = {
   transactionDate?: string;
   categoryId?: string;
   description?: string | null;
+  walletId?: string | null;
+  reconciliationStatus?: ReconciliationStatus;
 };
 
 export type UpdateTransactionInput = {
@@ -80,6 +107,8 @@ export type ListTransactionsFilter = {
   ownerUserId?: string;
   type?: TransactionType;
   categoryId?: string;
+  walletId?: string;
+  reconciliationStatus?: ReconciliationStatus;
   dateFrom?: string;
   dateTo?: string;
   search?: string;
@@ -213,6 +242,7 @@ type IdempotencyRow = {
   category_id: string;
   transaction_date: string;
   description: string | null;
+  wallet_id: string | null;
 };
 
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -229,6 +259,29 @@ export function serializeTransaction(row: TransactionRow): TransactionDetail {
     type: row.type,
     amount: row.amount,
     categoryId: row.category_id,
+    walletId: row.wallet_id,
+    wallet: row.wallet_id
+      ? {
+          id: row.wallet_id,
+          name: row.wallet_name ?? "Dompet",
+          type: row.wallet_type ?? "other",
+          icon: row.wallet_icon ?? null,
+          color: row.wallet_color ?? null,
+        }
+      : null,
+    sourceWallet: row.source_wallet_id
+      ? {
+          id: row.source_wallet_id,
+          name: row.source_wallet_name ?? "Dompet",
+        }
+      : null,
+    destinationWallet: row.destination_wallet_id
+      ? {
+          id: row.destination_wallet_id,
+          name: row.destination_wallet_name ?? "Dompet",
+        }
+      : null,
+    reconciliationStatus: row.reconciliation_status,
     description: row.description,
     transactionDate: row.transaction_date,
     source: row.source,
@@ -250,12 +303,21 @@ export function serializeTransaction(row: TransactionRow): TransactionDetail {
 const transactionSelect = `SELECT
   t.id, t.owner_user_id, t.type, t.category_id,
   t.source_savings_goal_id, t.destination_savings_goal_id,
+  t.wallet_id, t.source_wallet_id, t.destination_wallet_id,
+  t.reconciliation_status,
   t.amount, t.description, t.transaction_date, t.source,
   t.idempotency_key, t.version, t.deleted_at, t.purge_after,
   t.created_at, t.updated_at,
-  c.name AS category_name, c.type AS category_type
+  c.name AS category_name, c.type AS category_type,
+  wallet.name AS wallet_name, wallet.type AS wallet_type,
+  wallet.icon AS wallet_icon, wallet.color AS wallet_color,
+  source_wallet.name AS source_wallet_name,
+  destination_wallet.name AS destination_wallet_name
 FROM transactions t
-LEFT JOIN categories c ON c.id = t.category_id`;
+LEFT JOIN categories c ON c.id = t.category_id
+LEFT JOIN wallets wallet ON wallet.id = t.wallet_id
+LEFT JOIN wallets source_wallet ON source_wallet.id = t.source_wallet_id
+LEFT JOIN wallets destination_wallet ON destination_wallet.id = t.destination_wallet_id`;
 
 async function getTransactionRow(
   database: D1Database,
@@ -299,13 +361,30 @@ async function validateTransactionCategory(
   }
 }
 
+async function validateTransactionWallet(
+  database: D1Database,
+  input: { walletId: string | null | undefined; ownerUserId: string },
+): Promise<void> {
+  if (!input.walletId) return;
+  const wallet = await database
+    .prepare(
+      `SELECT id FROM wallets
+       WHERE id = ?1 AND owner_user_id = ?2 AND is_archived = 0
+       LIMIT 1`,
+    )
+    .bind(input.walletId, input.ownerUserId)
+    .first<{ id: string }>();
+  if (!wallet) throw new NotFoundError("Dompet tidak ditemukan.");
+}
+
 async function findByIdempotencyKey(
   database: D1Database,
   key: string,
 ): Promise<IdempotencyRow | null> {
   return database
     .prepare(
-      `SELECT id, owner_user_id, type, amount, category_id, transaction_date, description
+      `SELECT id, owner_user_id, type, amount, category_id, wallet_id,
+         transaction_date, description
        FROM transactions
        WHERE idempotency_key = ?1
        LIMIT 1`,
@@ -324,6 +403,7 @@ function matchesIdempotentPayload(
     existing.type === input.type &&
     existing.amount === input.amount &&
     existing.category_id === input.categoryId &&
+    (existing.wallet_id ?? null) === (input.walletId ?? null) &&
     existing.transaction_date === input.transactionDate &&
     (existing.description ?? null) === description
   );
@@ -366,6 +446,10 @@ export async function createTransaction(
     categoryId: input.categoryId,
     ownerUserId: input.ownerUserId,
   });
+  await validateTransactionWallet(database, {
+    walletId: input.walletId,
+    ownerUserId: input.ownerUserId,
+  });
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -373,9 +457,9 @@ export async function createTransaction(
   const result = await database
     .prepare(
       `INSERT INTO transactions (
-         id, owner_user_id, type, category_id, amount, description,
-         transaction_date, source, idempotency_key, version, created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+          id, owner_user_id, type, category_id, wallet_id, amount, description,
+          transaction_date, source, idempotency_key, version, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
        ON CONFLICT(idempotency_key) DO NOTHING`,
     )
     .bind(
@@ -383,6 +467,7 @@ export async function createTransaction(
       input.ownerUserId,
       input.type,
       input.categoryId,
+      input.walletId ?? null,
       input.amount,
       description,
       input.transactionDate,
@@ -427,6 +512,10 @@ export async function updateTransaction(
 
   const nextType = input.patch.type ?? current.type;
   const nextCategoryId = input.patch.categoryId ?? current.categoryId;
+  const nextWalletId =
+    input.patch.walletId === undefined
+      ? current.walletId
+      : input.patch.walletId;
   const description = normalizeDescription(
     input.patch.description ?? current.description,
   );
@@ -444,6 +533,12 @@ export async function updateTransaction(
       ownerUserId: input.ownerUserId,
     });
   }
+  if (nextWalletId !== current.walletId) {
+    await validateTransactionWallet(database, {
+      walletId: nextWalletId,
+      ownerUserId: input.ownerUserId,
+    });
+  }
 
   const result = await database
     .prepare(
@@ -452,11 +547,13 @@ export async function updateTransaction(
            category_id = ?2,
            amount = ?3,
            description = ?4,
-           transaction_date = ?5,
-           version = version + 1,
-           updated_at = ?6
-       WHERE id = ?7
-         AND version = ?8
+            transaction_date = ?5,
+            wallet_id = ?6,
+            reconciliation_status = ?7,
+            version = version + 1,
+            updated_at = ?8
+        WHERE id = ?9
+          AND version = ?10
          AND type IN ('income', 'expense')`,
     )
     .bind(
@@ -465,6 +562,8 @@ export async function updateTransaction(
       input.patch.amount ?? current.amount,
       description,
       input.patch.transactionDate ?? current.transactionDate,
+      nextWalletId,
+      input.patch.reconciliationStatus ?? current.reconciliationStatus,
       new Date().toISOString(),
       input.id,
       input.version,
@@ -589,6 +688,17 @@ export async function listTransactions(
   if (filters.categoryId) {
     conditions.push("t.category_id = ?" + (parameters.length + 1));
     parameters.push(filters.categoryId);
+  }
+  if (filters.walletId) {
+    const placeholder = "?" + (parameters.length + 1);
+    conditions.push(
+      `(t.wallet_id = ${placeholder} OR t.source_wallet_id = ${placeholder} OR t.destination_wallet_id = ${placeholder})`,
+    );
+    parameters.push(filters.walletId);
+  }
+  if (filters.reconciliationStatus) {
+    conditions.push("t.reconciliation_status = ?" + (parameters.length + 1));
+    parameters.push(filters.reconciliationStatus);
   }
   if (filters.dateFrom) {
     conditions.push("t.transaction_date >= ?" + (parameters.length + 1));

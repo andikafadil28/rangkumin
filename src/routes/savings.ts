@@ -133,6 +133,7 @@ savingsRoutes.post("/goals/:goalId/deposits", async (context) => {
       description: body.description ?? null,
       transactionDate: body.transaction_date,
       idempotencyKey,
+      walletId: body.wallet_id,
     });
     const status = mutationStatus(context, result);
     return context.json({ mutation: result.mutation }, status);
@@ -154,6 +155,7 @@ savingsRoutes.post("/goals/:goalId/withdrawals", async (context) => {
       description: body.description ?? null,
       transactionDate: body.transaction_date,
       idempotencyKey,
+      walletId: body.wallet_id,
     });
     const status = mutationStatus(context, result);
     return context.json({ mutation: result.mutation }, status);

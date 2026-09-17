@@ -67,6 +67,10 @@ function transactionRow(): TransactionRow {
     category_id: "expense-default-1",
     source_savings_goal_id: null,
     destination_savings_goal_id: null,
+    wallet_id: null,
+    source_wallet_id: null,
+    destination_wallet_id: null,
+    reconciliation_status: "unreconciled",
     amount: 50000,
     description: null,
     transaction_date: "2026-09-05",
@@ -228,6 +232,31 @@ describe("transaction routes", () => {
           ],
         },
       },
+      {
+        match: (sql) => sql.includes("FROM wallets w"),
+        response: {
+          all: [
+            {
+              id: "wallet-1",
+              owner_user_id: "user-1",
+              type: "bank",
+              name: "Rekening Utama",
+              description: null,
+              icon: "bank",
+              color: "#3366FF",
+              group_name: "bank",
+              initial_balance: 1000000,
+              default_wallet: 1,
+              sort_order: 0,
+              is_archived: 0,
+              archived_at: null,
+              balance: 1000000,
+              created_at: "2026-09-05T00:00:00.000Z",
+              updated_at: "2026-09-05T00:00:00.000Z",
+            },
+          ],
+        },
+      },
     ]);
     const { environment, testApp } = createTestApp(database);
     const response = await testApp.request("/summary", {}, environment);
@@ -244,6 +273,14 @@ describe("transaction routes", () => {
         period: getPreviousMonthRange(getCurrentMonthRange().from),
         combined: { income: 0, expense: 0, net: 0 },
       },
+      walletBreakdown: [
+        {
+          walletId: "wallet-1",
+          ownerUserId: "user-1",
+          balance: 1000000,
+          percentage: 100,
+        },
+      ],
     });
   });
 

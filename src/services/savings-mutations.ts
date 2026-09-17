@@ -13,6 +13,7 @@ type SavingsMutationRow = {
   type: SavingsMutationType;
   source_savings_goal_id: string | null;
   destination_savings_goal_id: string | null;
+  wallet_id: string | null;
   amount: number;
   description: string | null;
   transaction_date: string;
@@ -21,6 +22,7 @@ type SavingsMutationRow = {
   created_at: string;
   source_goal_name: string | null;
   destination_goal_name: string | null;
+  wallet_name: string | null;
 };
 
 export type SavingsMutationDetail = {
@@ -29,6 +31,7 @@ export type SavingsMutationDetail = {
   type: SavingsMutationType;
   sourceGoal: { id: string; name: string } | null;
   destinationGoal: { id: string; name: string } | null;
+  wallet: { id: string; name: string } | null;
   amount: number;
   description: string | null;
   transactionDate: string;
@@ -41,6 +44,7 @@ type CreateSavingsMutationInput = {
   type: SavingsMutationType;
   sourceGoalId: string | null;
   destinationGoalId: string | null;
+  walletId: string | null;
   amount: number;
   description: string | null;
   transactionDate: string;
@@ -49,15 +53,17 @@ type CreateSavingsMutationInput = {
 
 const mutationSelect = `SELECT
   t.id, t.owner_user_id, t.type,
-  t.source_savings_goal_id, t.destination_savings_goal_id,
+  t.source_savings_goal_id, t.destination_savings_goal_id, t.wallet_id,
   t.amount, t.description, t.transaction_date, t.source,
   t.idempotency_key, t.created_at,
   source_goal.name AS source_goal_name,
-  destination_goal.name AS destination_goal_name
+  destination_goal.name AS destination_goal_name,
+  wallet.name AS wallet_name
 FROM transactions t
 LEFT JOIN savings_goals source_goal ON source_goal.id = t.source_savings_goal_id
 LEFT JOIN savings_goals destination_goal
-  ON destination_goal.id = t.destination_savings_goal_id`;
+  ON destination_goal.id = t.destination_savings_goal_id
+LEFT JOIN wallets wallet ON wallet.id = t.wallet_id`;
 
 function serializeMutation(row: SavingsMutationRow): SavingsMutationDetail {
   return {
@@ -72,6 +78,9 @@ function serializeMutation(row: SavingsMutationRow): SavingsMutationDetail {
           id: row.destination_savings_goal_id,
           name: row.destination_goal_name ?? "Pos",
         }
+      : null,
+    wallet: row.wallet_id
+      ? { id: row.wallet_id, name: row.wallet_name ?? "Dompet" }
       : null,
     amount: row.amount,
     description: row.description,
@@ -111,6 +120,7 @@ function matchesPayload(
     row.type === input.type &&
     row.source_savings_goal_id === input.sourceGoalId &&
     row.destination_savings_goal_id === input.destinationGoalId &&
+    (row.wallet_id ?? null) === input.walletId &&
     row.amount === input.amount &&
     row.description === description &&
     row.transaction_date === input.transactionDate
@@ -148,6 +158,22 @@ async function canMutateGoal(
     .bind(goalId, actorUserId)
     .first<{ id: string }>();
 
+  return Boolean(row);
+}
+
+async function canUseWallet(
+  database: D1Database,
+  walletId: string,
+  actorUserId: string,
+): Promise<boolean> {
+  const row = await database
+    .prepare(
+      `SELECT id FROM wallets
+       WHERE id = ?1 AND owner_user_id = ?2 AND is_archived = 0
+       LIMIT 1`,
+    )
+    .bind(walletId, actorUserId)
+    .first<{ id: string }>();
   return Boolean(row);
 }
 
@@ -222,24 +248,54 @@ function atomicCondition(type: SavingsMutationType): string {
     FROM transactions
     WHERE deleted_at IS NULL
       AND (source_savings_goal_id = ?4 OR destination_savings_goal_id = ?4)
-  ), 0) >= ?6`;
+  ), 0) >= ?7`;
+  const walletAccess = `(?6 IS NULL OR EXISTS (
+    SELECT 1 FROM wallets
+    WHERE id = ?6 AND owner_user_id = ?2 AND is_archived = 0
+  ))`;
+  const walletBalance = `EXISTS (
+    SELECT 1 FROM wallets w
+    WHERE w.id = ?6
+      AND w.owner_user_id = ?2
+      AND w.is_archived = 0
+      AND w.initial_balance + COALESCE((
+        SELECT SUM(CASE
+          WHEN t.type = 'income' AND t.wallet_id = w.id THEN t.amount
+          WHEN t.type IN ('expense', 'saving_deposit') AND t.wallet_id = w.id THEN -t.amount
+          WHEN t.type = 'saving_withdrawal' AND t.wallet_id = w.id THEN t.amount
+          WHEN t.type = 'wallet_transfer' AND t.source_wallet_id = w.id THEN -t.amount
+          WHEN t.type = 'wallet_transfer' AND t.destination_wallet_id = w.id THEN t.amount
+          ELSE 0
+        END)
+        FROM transactions t
+        WHERE t.deleted_at IS NULL
+          AND (
+            t.wallet_id = w.id
+            OR t.source_wallet_id = w.id
+            OR t.destination_wallet_id = w.id
+          )
+      ), 0) >= ?7
+  )`;
 
   if (type === "saving_deposit") {
-    return `${goalAccess("?5")} AND COALESCE((
-      SELECT SUM(CASE
+    return `${goalAccess("?5")} AND (
+      (?6 IS NOT NULL AND ${walletBalance})
+      OR (?6 IS NULL AND COALESCE((
+       SELECT SUM(CASE
         WHEN type = 'income' THEN amount
         WHEN type = 'expense' THEN -amount
         WHEN type = 'saving_deposit' THEN -amount
         WHEN type = 'saving_withdrawal' THEN amount
         ELSE 0
       END)
-      FROM transactions
-      WHERE owner_user_id = ?2 AND deleted_at IS NULL
-    ), 0) >= ?6`;
+       FROM transactions
+       WHERE owner_user_id = ?2 AND deleted_at IS NULL
+      ), 0) >= ?7)
+    )`;
   }
 
   if (type === "saving_withdrawal") {
-    return `${goalAccess("?4")} AND ${goalBalance}`;
+    return `${goalAccess("?4")} AND ${goalBalance} AND ${walletAccess}`;
   }
 
   return `${goalAccess("?4")} AND ${goalAccess("?5")} AND ${goalBalance}`;
@@ -262,10 +318,10 @@ async function createSavingsMutation(
     .prepare(
       `INSERT INTO transactions (
          id, owner_user_id, type, source_savings_goal_id,
-         destination_savings_goal_id, amount, description, transaction_date,
+         destination_savings_goal_id, wallet_id, amount, description, transaction_date,
          source, idempotency_key, version, created_at, updated_at
        )
-       SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12
+       SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 1, ?12, ?13
        WHERE ${atomicCondition(input.type)}
        ON CONFLICT(idempotency_key) DO NOTHING`,
     )
@@ -275,6 +331,7 @@ async function createSavingsMutation(
       input.type,
       input.sourceGoalId,
       input.destinationGoalId,
+      input.walletId,
       input.amount,
       description,
       input.transactionDate,
@@ -299,6 +356,12 @@ async function createSavingsMutation(
         throw new NotFoundError("Pos tabungan tidak ditemukan.");
       }
     }
+    if (
+      input.walletId &&
+      !(await canUseWallet(database, input.walletId, input.actorUserId))
+    ) {
+      throw new NotFoundError("Dompet tidak ditemukan.");
+    }
 
     throw new InsufficientBalanceError(
       input.type === "saving_deposit"
@@ -317,33 +380,42 @@ async function createSavingsMutation(
 
 export function depositToSavings(
   database: D1Database,
-  input: Omit<CreateSavingsMutationInput, "type" | "sourceGoalId">,
+  input: Omit<
+    CreateSavingsMutationInput,
+    "type" | "sourceGoalId" | "walletId"
+  > & { walletId?: string | null },
 ) {
   return createSavingsMutation(database, {
     ...input,
     type: "saving_deposit",
     sourceGoalId: null,
+    walletId: input.walletId ?? null,
   });
 }
 
 export function withdrawFromSavings(
   database: D1Database,
-  input: Omit<CreateSavingsMutationInput, "type" | "destinationGoalId">,
+  input: Omit<
+    CreateSavingsMutationInput,
+    "type" | "destinationGoalId" | "walletId"
+  > & { walletId?: string | null },
 ) {
   return createSavingsMutation(database, {
     ...input,
     type: "saving_withdrawal",
     destinationGoalId: null,
+    walletId: input.walletId ?? null,
   });
 }
 
 export function transferSavings(
   database: D1Database,
-  input: Omit<CreateSavingsMutationInput, "type">,
+  input: Omit<CreateSavingsMutationInput, "type" | "walletId">,
 ) {
   return createSavingsMutation(database, {
     ...input,
     type: "saving_transfer",
+    walletId: null,
   });
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AuthRequiredError } from "./api";
 import type { Summary, SummaryItem, Transaction, getDashboard } from "./api";
 import { TransactionsPage } from "./TransactionsPage";
+import { WalletsPage } from "./WalletsPage";
 import { SavingsPage } from "./SavingsPage";
 import { PlansPage } from "./PlansPage";
 import { SettingsPage } from "./SettingsPage";
@@ -24,7 +25,13 @@ import { changeDescription, percentageChange } from "./dashboardInsights";
 
 type DashboardData = Awaited<ReturnType<typeof getDashboard>>;
 type Page =
-  "home" | "transactions" | "savings" | "plans" | "settings" | "data-transfer";
+  | "home"
+  | "transactions"
+  | "wallets"
+  | "savings"
+  | "plans"
+  | "settings"
+  | "data-transfer";
 
 const money = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -43,6 +50,7 @@ function Icon({
 }: {
   name:
     | "home"
+    | "transaction"
     | "wallet"
     | "target"
     | "calendar"
@@ -56,6 +64,7 @@ function Icon({
 }) {
   const paths = {
     home: "M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z",
+    transaction: "M7 7h13m0 0-3-3m3 3-3 3M17 17H4m0 0 3-3m-3 3 3 3",
     wallet:
       "M3 7h16a2 2 0 0 1 2 2v10H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12v4m0 5h4",
     target:
@@ -80,7 +89,8 @@ function Icon({
 
 const navItems = [
   ["home", "Beranda", "home"],
-  ["transactions", "Transaksi", "wallet"],
+  ["transactions", "Transaksi", "transaction"],
+  ["wallets", "Dompet", "wallet"],
   ["savings", "Tabungan", "target"],
   ["plans", "Rencana", "calendar"],
   ["settings", "Pengaturan", "settings"],
@@ -408,6 +418,9 @@ export function App() {
   const [transactionIntent, setTransactionIntent] = useState<
     "income" | "expense" | null
   >(null);
+  const [walletIntent, setWalletIntent] = useState<{
+    walletId: string;
+  } | null>(null);
   const [savingsIntent, setSavingsIntent] = useState(false);
   const [trashIntent, setTrashIntent] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -706,9 +719,23 @@ export function App() {
             hidden={balancesHidden}
             intent={transactionIntent}
             onIntentHandled={() => setTransactionIntent(null)}
+            walletIntent={walletIntent}
+            onWalletIntentHandled={() => setWalletIntent(null)}
             openTrash={trashIntent}
             onTrashHandled={() => setTrashIntent(false)}
             online={offline.online && !snapshotState.stale}
+          />
+        ) : activePage === "wallets" && data ? (
+          <WalletsPage
+            userId={data.user.id}
+            viewMode={viewMode}
+            hidden={balancesHidden}
+            online={offline.online && !snapshotState.stale}
+            onQuickAdd={(wallet) => {
+              setWalletIntent({ walletId: wallet.id });
+              setTransactionIntent("expense");
+              setActivePage("transactions");
+            }}
           />
         ) : activePage === "savings" && data ? (
           <SavingsPage

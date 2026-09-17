@@ -54,11 +54,14 @@ export const transactionOwnershipGuard = createMiddleware<AppEnv>(
       );
     }
 
-    if (transaction.type?.startsWith("saving_")) {
+    if (
+      transaction.type?.startsWith("saving_") ||
+      transaction.type === "wallet_transfer"
+    ) {
       return context.json(
         {
           error: "Conflict",
-          message: "Riwayat mutasi tabungan bersifat immutable.",
+          message: "Riwayat transfer bersifat immutable.",
         },
         409,
       );

@@ -62,6 +62,10 @@ function baseRow(overrides: Partial<TransactionRow> = {}): TransactionRow {
     category_id: "expense-default-1",
     source_savings_goal_id: null,
     destination_savings_goal_id: null,
+    wallet_id: null,
+    source_wallet_id: null,
+    destination_wallet_id: null,
+    reconciliation_status: "unreconciled",
     amount: 50000,
     description: "Makan siang",
     transaction_date: "2026-09-05",
@@ -79,6 +83,93 @@ function baseRow(overrides: Partial<TransactionRow> = {}): TransactionRow {
 }
 
 describe("createTransaction", () => {
+  it("membuat transaksi dengan wallet milik user", async () => {
+    const row = baseRow({
+      wallet_id: "wallet-1",
+      wallet_name: "Rekening Utama",
+      wallet_type: "bank",
+      wallet_icon: "bank",
+      wallet_color: "#3366FF",
+    });
+    const database = createFakeDatabase([
+      {
+        match: (sql) => sql.includes("WHERE idempotency_key = ?1"),
+        response: { first: null },
+      },
+      {
+        match: (sql) => sql.includes("FROM categories"),
+        response: { first: { id: row.category_id } },
+      },
+      {
+        match: (sql) => sql.includes("SELECT id FROM wallets"),
+        response: { first: { id: "wallet-1" } },
+      },
+      {
+        match: (sql) => sql.includes("INSERT INTO transactions"),
+        response: { changes: 1 },
+      },
+      {
+        match: (sql) => sql.includes("FROM transactions t"),
+        response: { first: row },
+      },
+    ]);
+
+    const result = await createTransaction(database, {
+      ownerUserId: "user-1",
+      type: "expense",
+      amount: row.amount,
+      transactionDate: row.transaction_date,
+      categoryId: row.category_id!,
+      walletId: "wallet-1",
+      description: row.description,
+      source: "web",
+      idempotencyKey: row.idempotency_key,
+    });
+
+    expect(result.transaction.wallet).toEqual({
+      id: "wallet-1",
+      name: "Rekening Utama",
+      type: "bank",
+      icon: "bank",
+      color: "#3366FF",
+    });
+    const insert = database.calls.find((call) =>
+      call.sql.includes("INSERT INTO transactions"),
+    );
+    expect(insert?.bind).toContain("wallet-1");
+  });
+
+  it("menolak wallet yang bukan milik user", async () => {
+    const database = createFakeDatabase([
+      {
+        match: (sql) => sql.includes("WHERE idempotency_key = ?1"),
+        response: { first: null },
+      },
+      {
+        match: (sql) => sql.includes("FROM categories"),
+        response: { first: { id: "expense-default-1" } },
+      },
+      {
+        match: (sql) => sql.includes("SELECT id FROM wallets"),
+        response: { first: null },
+      },
+    ]);
+
+    await expect(
+      createTransaction(database, {
+        ownerUserId: "user-1",
+        type: "expense",
+        amount: 50000,
+        transactionDate: "2026-09-05",
+        categoryId: "expense-default-1",
+        walletId: "wallet-user-2",
+        description: null,
+        source: "web",
+        idempotencyKey: "wallet-owner-check-0001",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
   it("mengembalikan transaksi yang sama untuk idempotency key berulang", async () => {
     const row = baseRow();
     const database = createFakeDatabase([
@@ -143,6 +234,7 @@ describe("createTransaction", () => {
         amount: 50000,
         transactionDate: "2026-09-05",
         categoryId: "expense-default-1",
+        walletId: null,
         description: "Makan siang",
         source: "web",
         idempotencyKey: "outbox-2026-09-05-0001",
@@ -255,6 +347,7 @@ describe("listTransactions", () => {
       ownerUserId: "user-1",
       type: "expense",
       categoryId: "expense-default-1",
+      walletId: "wallet-1",
       dateFrom: "2026-09-01",
       dateTo: "2026-09-30",
       search: "mingguan%_",
@@ -281,6 +374,7 @@ describe("listTransactions", () => {
       "user-1",
       "expense",
       "expense-default-1",
+      "wallet-1",
       "2026-09-01",
       "2026-09-30",
       "%mingguan\\%\\_%",
@@ -440,6 +534,11 @@ describe("notifyTransactionCreated", () => {
         type: "expense",
         amount: 50000,
         categoryId: "expense-default-1",
+        walletId: null,
+        wallet: null,
+        sourceWallet: null,
+        destinationWallet: null,
+        reconciliationStatus: "unreconciled",
         description: "Makan siang",
         transactionDate: "2026-09-05",
         source: "web",
@@ -485,6 +584,11 @@ describe("notifyTransactionCreated", () => {
         type: "saving_deposit",
         amount: 50000,
         categoryId: null,
+        walletId: null,
+        wallet: null,
+        sourceWallet: null,
+        destinationWallet: null,
+        reconciliationStatus: "unreconciled",
         description: null,
         transactionDate: "2026-09-05",
         source: "web",
@@ -517,6 +621,11 @@ describe("notifyTransactionCreated", () => {
         type: "expense",
         amount: 50000,
         categoryId: "expense-default-1",
+        walletId: null,
+        wallet: null,
+        sourceWallet: null,
+        destinationWallet: null,
+        reconciliationStatus: "unreconciled",
         description: null,
         transactionDate: "2026-09-05",
         source: "web",
