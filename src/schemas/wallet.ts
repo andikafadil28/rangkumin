@@ -97,3 +97,12 @@ export const walletTransferSchema = z
     message: "Dompet asal dan tujuan harus berbeda.",
     path: ["destination_wallet_id"],
   });
+
+export const walletAllocationSchema = z
+  .object({
+    wallet_id: walletIdSchema,
+    direction: z.enum(["to_wallet", "to_unallocated"]),
+    amount: amountSchema,
+    description: descriptionSchema,
+  })
+  .strict();

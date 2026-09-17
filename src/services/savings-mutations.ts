@@ -274,23 +274,60 @@ function atomicCondition(type: SavingsMutationType): string {
             OR t.source_wallet_id = w.id
             OR t.destination_wallet_id = w.id
           )
-      ), 0) >= ?7
+       ), 0) + COALESCE((
+         SELECT SUM(CASE
+           WHEN a.direction = 'to_wallet' THEN a.amount
+           WHEN a.direction = 'to_unallocated' THEN -a.amount
+           ELSE 0
+         END)
+         FROM wallet_balance_allocations a
+         WHERE a.wallet_id = w.id
+       ), 0) >= ?7
   )`;
+  const unallocatedBalance = `(COALESCE((
+    SELECT SUM(CASE
+      WHEN t.type = 'income' THEN t.amount
+      WHEN t.type = 'expense' THEN -t.amount
+      WHEN t.type = 'saving_deposit' THEN -t.amount
+      WHEN t.type = 'saving_withdrawal' THEN t.amount
+      ELSE 0
+    END)
+    FROM transactions t
+    WHERE t.owner_user_id = ?2 AND t.deleted_at IS NULL
+  ), 0) - COALESCE((
+    SELECT SUM(w.initial_balance + COALESCE((
+      SELECT SUM(CASE
+        WHEN wt.type = 'income' AND wt.wallet_id = w.id THEN wt.amount
+        WHEN wt.type IN ('expense', 'saving_deposit') AND wt.wallet_id = w.id THEN -wt.amount
+        WHEN wt.type = 'saving_withdrawal' AND wt.wallet_id = w.id THEN wt.amount
+        WHEN wt.type = 'wallet_transfer' AND wt.source_wallet_id = w.id THEN -wt.amount
+        WHEN wt.type = 'wallet_transfer' AND wt.destination_wallet_id = w.id THEN wt.amount
+        ELSE 0
+      END)
+      FROM transactions wt
+      WHERE wt.deleted_at IS NULL
+        AND (
+          wt.wallet_id = w.id
+          OR wt.source_wallet_id = w.id
+          OR wt.destination_wallet_id = w.id
+        )
+    ), 0) + COALESCE((
+      SELECT SUM(CASE
+        WHEN wa.direction = 'to_wallet' THEN wa.amount
+        WHEN wa.direction = 'to_unallocated' THEN -wa.amount
+        ELSE 0
+      END)
+      FROM wallet_balance_allocations wa
+      WHERE wa.wallet_id = w.id
+    ), 0))
+    FROM wallets w
+    WHERE w.owner_user_id = ?2
+  ), 0))`;
 
   if (type === "saving_deposit") {
     return `${goalAccess("?5")} AND (
       (?6 IS NOT NULL AND ${walletBalance})
-      OR (?6 IS NULL AND COALESCE((
-       SELECT SUM(CASE
-        WHEN type = 'income' THEN amount
-        WHEN type = 'expense' THEN -amount
-        WHEN type = 'saving_deposit' THEN -amount
-        WHEN type = 'saving_withdrawal' THEN amount
-        ELSE 0
-      END)
-       FROM transactions
-       WHERE owner_user_id = ?2 AND deleted_at IS NULL
-      ), 0) >= ?7)
+      OR (?6 IS NULL AND ${unallocatedBalance} >= ?7)
     )`;
   }
 

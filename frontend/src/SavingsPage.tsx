@@ -4,12 +4,13 @@ import { useAutoRefresh } from "./useAutoRefresh";
 import {
   createSavingsGoal,
   getSavingsOverview,
+  getWallets,
   mutateSavingsGoal,
   setSavingsGoalArchived,
   transferSavings,
   updateSavingsGoal,
 } from "./api";
-import type { SavingsGoal, SavingsOverview } from "./api";
+import type { SavingsGoal, SavingsOverview, Wallet } from "./api";
 import { loadWithSnapshot } from "./offline/snapshots";
 import { partitionGoals } from "./viewMode";
 import type { ViewMode } from "./viewMode";
@@ -38,12 +39,14 @@ function displayMoney(value: number, hidden: boolean) {
 function SavingsForm({
   operation,
   goals,
+  wallets,
   onClose,
   onSaved,
   onArchive,
 }: {
   operation: Operation;
   goals: SavingsGoal[];
+  wallets: Wallet[];
   onClose: () => void;
   onSaved: () => void;
   onArchive: (goal: SavingsGoal) => void;
@@ -62,6 +65,7 @@ function SavingsForm({
   const [destinationId, setDestinationId] = useState("");
   const [date, setDate] = useState(today);
   const [description, setDescription] = useState("");
+  const [walletId, setWalletId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const title =
@@ -120,10 +124,20 @@ function SavingsForm({
             ...common,
           });
         } else {
+          const selectedWallet = wallets.find(
+            (wallet) => wallet.id === walletId,
+          );
+          if (
+            operation.kind === "deposit" &&
+            selectedWallet &&
+            selectedWallet.balance < numericAmount
+          ) {
+            throw new Error("Saldo dompet tidak mencukupi.");
+          }
           await mutateSavingsGoal(
             operation.goal.id,
             operation.kind === "deposit" ? "deposits" : "withdrawals",
-            common,
+            { ...common, wallet_id: walletId || null },
           );
         }
       }
@@ -275,6 +289,22 @@ function SavingsForm({
                   />
                 </div>
               </label>
+              {operation.kind !== "transfer" && (
+                <label>
+                  <span>Sumber/tujuan saldo</span>
+                  <select
+                    value={walletId}
+                    onChange={(event) => setWalletId(event.target.value)}
+                  >
+                    <option value="">Tanpa dompet</option>
+                    {wallets.map((wallet) => (
+                      <option key={wallet.id} value={wallet.id}>
+                        {wallet.name} · {money.format(wallet.balance)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label>
                 <span>Tanggal</span>
                 <input
@@ -436,6 +466,7 @@ export function SavingsPage({
   online: boolean;
 }) {
   const [overview, setOverview] = useState<SavingsOverview | null>(null);
+  const [wallets, setWallets] = useState<Wallet[]>([]);
   const [operation, setOperation] = useState<Operation | null>(
     openCreate ? { kind: "create" } : null,
   );
@@ -489,6 +520,20 @@ export function SavingsPage({
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [reload, userId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getWallets({ owner: userId }, controller.signal)
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setWallets(result.wallets.filter((wallet) => !wallet.isArchived));
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setWallets([]);
       });
     return () => controller.abort();
   }, [reload, userId]);
@@ -738,6 +783,7 @@ export function SavingsPage({
         <SavingsForm
           operation={operation}
           goals={accessibleGoals}
+          wallets={wallets}
           onClose={closeForm}
           onSaved={savedGoal}
           onArchive={(goal) => {

@@ -5,14 +5,18 @@ import {
   createWalletSchema,
   listWalletsQuerySchema,
   updateWalletSchema,
+  walletAllocationSchema,
   walletTransferSchema,
 } from "../schemas/wallet";
 import {
   archiveWallet,
   createWallet,
+  createWalletAllocation,
   deleteWallet,
   getWallet,
   listWallets,
+  listWalletAllocations,
+  listWalletOverviews,
   setDefaultWallet,
   transferBetweenWallets,
   unarchiveWallet,
@@ -30,11 +34,30 @@ function validWalletId(value: string): string | null {
 walletRoutes.get("/", async (context) => {
   try {
     const query = listWalletsQuerySchema.parse(context.req.query());
-    const wallets = await listWallets(context.env.DB, {
-      ownerUserId: query.owner,
-      includeArchived: query.archived,
+    const [wallets, overviews] = await Promise.all([
+      listWallets(context.env.DB, {
+        ownerUserId: query.owner,
+        includeArchived: query.archived,
+      }),
+      listWalletOverviews(context.env.DB),
+    ]);
+    return context.json({ wallets, overviews });
+  } catch (error) {
+    return respondWithError(context, error);
+  }
+});
+
+walletRoutes.post("/allocations", async (context) => {
+  try {
+    const body = walletAllocationSchema.parse(await context.req.json());
+    const result = await createWalletAllocation(context.env.DB, {
+      ownerUserId: context.get("currentUser").id,
+      walletId: body.wallet_id,
+      direction: body.direction,
+      amount: body.amount,
+      description: body.description,
     });
-    return context.json({ wallets });
+    return context.json(result, 201);
   } catch (error) {
     return respondWithError(context, error);
   }
@@ -81,6 +104,22 @@ walletRoutes.post("/transfer", async (context) => {
       { transfer: result.transfer },
       result.replayed ? 200 : 201,
     );
+  } catch (error) {
+    return respondWithError(context, error);
+  }
+});
+
+walletRoutes.get("/:walletId/allocations", async (context) => {
+  try {
+    const walletId = validWalletId(context.req.param("walletId"));
+    if (!walletId) {
+      return context.json(
+        { error: "Not Found", message: "Dompet tidak ditemukan." },
+        404,
+      );
+    }
+    const allocations = await listWalletAllocations(context.env.DB, walletId);
+    return context.json({ allocations });
   } catch (error) {
     return respondWithError(context, error);
   }

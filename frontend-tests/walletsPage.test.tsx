@@ -4,6 +4,7 @@ import type { Wallet } from "../frontend/src/api";
 import {
   WalletsPage,
   filterWallets,
+  getAllocationMaximum,
   groupWallets,
 } from "../frontend/src/WalletsPage";
 
@@ -66,6 +67,24 @@ describe("wallet page helpers", () => {
     ]);
     expect(groups.every((group) => group.label === "Bank")).toBe(true);
   });
+
+  it("membatasi alokasi berdasarkan arah tanpa menambah total saldo", () => {
+    const overview = {
+      ownerUserId: "user-1",
+      cashBalance: 500_000,
+      walletBalance: 300_000,
+      unallocatedBalance: 200_000,
+    };
+
+    expect(getAllocationMaximum("to_wallet", overview, wallet())).toBe(200_000);
+    expect(
+      getAllocationMaximum(
+        "to_unallocated",
+        overview,
+        wallet({ balance: 125_000 }),
+      ),
+    ).toBe(125_000);
+  });
 });
 
 describe("WalletsPage", () => {
@@ -82,7 +101,7 @@ describe("WalletsPage", () => {
 
     expect(html).toContain('aria-labelledby="wallets-page-title"');
     expect(html).toContain("Di mana uangmu berada");
-    expect(html).toContain("Total dompet kalian");
+    expect(html).toContain("Saldo tersedia");
     expect(html).toContain('class="wallets-loading"');
   });
 });

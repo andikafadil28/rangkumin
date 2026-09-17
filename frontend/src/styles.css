@@ -587,6 +587,22 @@ h3 {
   font-size: clamp(1.75rem, 4vw, 2.5rem);
   letter-spacing: -0.04em;
 }
+.balance-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+.balance-breakdown span {
+  display: grid;
+  gap: 0.15rem;
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+.balance-breakdown b {
+  color: var(--ink);
+  font-size: 0.72rem;
+}
 .live-money {
   display: inline-block;
   animation: number-refresh 180ms ease-out;
@@ -1841,7 +1857,7 @@ h3 {
 .wallets-hero {
   position: relative;
   display: grid;
-  grid-template-columns: 1.6fr 0.65fr;
+  grid-template-columns: 1.5fr 0.75fr 0.75fr;
   gap: 1rem;
   margin-bottom: 1.5rem;
   padding: clamp(1.4rem, 3vw, 2rem);
@@ -1886,11 +1902,17 @@ h3 {
 }
 .wallet-sections {
   display: grid;
-  gap: 1.5rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 1.2rem 0.8rem;
 }
 .wallet-group {
   display: grid;
+  min-width: 0;
   gap: 0.7rem;
+}
+.wallet-group .wallet-grid {
+  grid-template-columns: 1fr;
 }
 .wallet-group-heading {
   display: flex;
@@ -1934,6 +1956,11 @@ h3 {
 }
 .wallet-card.is-archived {
   opacity: 0.78;
+}
+.wallet-card-unallocated {
+  --wallet-color: var(--rose-strong);
+  border-style: dashed;
+  background: color-mix(in srgb, var(--rose-soft) 35%, var(--surface));
 }
 .wallet-card-top,
 .wallet-badges,
@@ -2134,6 +2161,34 @@ h3 {
   width: 1rem;
   min-height: 1rem;
   accent-color: var(--forest);
+}
+.wallet-balance-hint,
+.wallet-allocation-copy {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+.wallet-allocation-copy {
+  padding: 0.75rem;
+  border-radius: 0.7rem;
+  background: var(--surface-soft);
+}
+.wallet-allocation-history {
+  margin-top: 1.2rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line);
+}
+.wallet-allocation-history > h3 {
+  font-size: 0.9rem;
+}
+.wallet-allocation-history > p,
+.wallet-allocation-empty {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+.wallet-allocation-history .wallet-mutations {
+  margin-top: 0.7rem;
 }
 .wallet-confirm-mark {
   display: grid;
@@ -3613,6 +3668,9 @@ h3 {
   .savings-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .wallet-sections {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .reminder-list {
     grid-template-columns: 1fr;
   }
@@ -3829,10 +3887,19 @@ h3 {
     display: none;
   }
   .wallets-hero {
-    grid-template-columns: 1fr 0.55fr;
+    grid-template-columns: 1fr 1fr;
+  }
+  .wallets-hero > div:first-child {
+    grid-column: 1 / -1;
+    padding-bottom: 1rem;
+  }
+  .wallets-hero > div:nth-child(2) {
+    padding-left: 0;
+    border-left: 0;
   }
   .wallet-grid,
-  .wallets-loading {
+  .wallets-loading,
+  .wallet-sections {
     grid-template-columns: 1fr;
   }
   .wallet-dialog {

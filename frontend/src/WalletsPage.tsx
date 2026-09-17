@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
   archiveWallet,
+  createWalletAllocation,
   createWallet,
   deleteWallet,
   getTransactions,
+  getWalletAllocations,
   getWallets,
   setDefaultWallet,
   transferBetweenWallets,
@@ -15,6 +17,9 @@ import type {
   ReconciliationStatus,
   Transaction,
   Wallet,
+  WalletAllocation,
+  WalletAllocationDirection,
+  WalletOverview,
   WalletType,
 } from "./api";
 import { loadWithSnapshot } from "./offline/snapshots";
@@ -135,16 +140,28 @@ export function groupWallets(wallets: Wallet[]) {
   return [...groups.values()];
 }
 
+export function getAllocationMaximum(
+  direction: WalletAllocationDirection,
+  overview: WalletOverview,
+  wallet?: Wallet,
+) {
+  return direction === "to_wallet"
+    ? overview.unallocatedBalance
+    : Math.max(0, wallet?.balance ?? 0);
+}
+
 function WalletForm({
   operation,
   wallets,
   onClose,
   onSaved,
+  availableBalance,
 }: {
   operation: Operation;
   wallets: Wallet[];
   onClose: () => void;
   onSaved: () => void;
+  availableBalance?: number;
 }) {
   const editing = operation.kind === "edit" ? operation.wallet : null;
   const [type, setType] = useState<WalletType>(editing?.type ?? "cash");
@@ -209,6 +226,12 @@ function WalletForm({
           const numericBalance = initialBalance ? Number(initialBalance) : 0;
           if (!Number.isSafeInteger(numericBalance) || numericBalance < 0) {
             throw new Error("Saldo awal harus berupa angka bulat non-negatif.");
+          }
+          if (
+            availableBalance !== undefined &&
+            numericBalance > availableBalance
+          ) {
+            throw new Error("Saldo Tanpa dompet tidak mencukupi.");
           }
           await createWallet({
             ...common,
@@ -399,7 +422,7 @@ function WalletForm({
                 <>
                   <label className="amount-field">
                     <span>
-                      Saldo awal <small>Opsional</small>
+                      Alokasi awal dari Tanpa dompet <small>Opsional</small>
                     </span>
                     <div>
                       <b>Rp</b>
@@ -416,6 +439,12 @@ function WalletForm({
                       />
                     </div>
                   </label>
+                  {availableBalance !== undefined && (
+                    <p className="wallet-balance-hint">
+                      Tersedia {money.format(availableBalance)}. Alokasi hanya
+                      memindahkan pencatatan saldo, bukan menambah total uang.
+                    </p>
+                  )}
                   <label className="wallet-check">
                     <input
                       type="checkbox"
@@ -471,6 +500,189 @@ function WalletForm({
   );
 }
 
+function WalletAllocationDialog({
+  wallets,
+  overview,
+  initialWalletId,
+  onClose,
+  onSaved,
+}: {
+  wallets: Wallet[];
+  overview: WalletOverview;
+  initialWalletId?: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [walletId, setWalletId] = useState(
+    initialWalletId ?? wallets[0]?.id ?? "",
+  );
+  const [direction, setDirection] =
+    useState<WalletAllocationDirection>("to_wallet");
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const wallet = wallets.find((item) => item.id === walletId);
+  const maximum = getAllocationMaximum(direction, overview, wallet);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    const numericAmount = Number(amount);
+    if (!walletId) {
+      setError("Pilih dompet yang akan diatur.");
+      return;
+    }
+    if (!Number.isSafeInteger(numericAmount) || numericAmount <= 0) {
+      setError("Nominal harus berupa angka bulat lebih dari nol.");
+      return;
+    }
+    if (numericAmount > maximum) {
+      setError(
+        direction === "to_wallet"
+          ? "Saldo Tanpa dompet tidak mencukupi."
+          : "Saldo dompet tidak mencukupi.",
+      );
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await createWalletAllocation({
+        wallet_id: walletId,
+        direction,
+        amount: numericAmount,
+        ...(description.trim() ? { description: description.trim() } : {}),
+      });
+      onSaved();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Saldo belum dapat diatur.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="dialog-backdrop wallet-backdrop" onMouseDown={onClose}>
+      <section
+        className="wallet-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wallet-allocation-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="form-heading">
+          <div>
+            <p className="eyebrow">Alokasi saldo</p>
+            <h2 id="wallet-allocation-title">Atur saldo</h2>
+          </div>
+          <button
+            className="dialog-close in-flow"
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup form"
+          >
+            ×
+          </button>
+        </div>
+        <form onSubmit={submit}>
+          <p className="wallet-allocation-copy">
+            Pindahkan pencatatan antara Tanpa dompet dan dompet. Total Saldo
+            tersedia tidak berubah dan uang tidak dihitung dua kali.
+          </p>
+          <fieldset className="type-picker">
+            <legend>Arah alokasi</legend>
+            <button
+              type="button"
+              aria-pressed={direction === "to_wallet"}
+              onClick={() => setDirection("to_wallet")}
+            >
+              Ke dompet
+            </button>
+            <button
+              type="button"
+              aria-pressed={direction === "to_unallocated"}
+              onClick={() => setDirection("to_unallocated")}
+            >
+              Ke Tanpa dompet
+            </button>
+          </fieldset>
+          <label>
+            <span>Dompet</span>
+            <select
+              value={walletId}
+              onChange={(event) => setWalletId(event.target.value)}
+              required
+            >
+              <option value="">Pilih dompet</option>
+              {wallets.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} · {money.format(item.balance)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="amount-field">
+            <span>Nominal</span>
+            <div>
+              <b>Rp</b>
+              <input
+                autoFocus
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={amount}
+                onChange={(event) =>
+                  setAmount(event.target.value.replace(/\D/g, ""))
+                }
+                placeholder="0"
+                required
+              />
+            </div>
+          </label>
+          <p className="wallet-balance-hint">
+            Maksimal {money.format(maximum)} dari{" "}
+            {direction === "to_wallet" ? "Tanpa dompet" : wallet?.name}.
+          </p>
+          <label>
+            <span>
+              Catatan <small>Opsional</small>
+            </span>
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Penyesuaian saldo..."
+            />
+          </label>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="form-actions">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={onClose}
+            >
+              Batal
+            </button>
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={submitting}
+            >
+              {submitting ? "Menyimpan..." : "Atur saldo"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function WalletDetailDialog({
   wallet,
   userId,
@@ -485,6 +697,7 @@ function WalletDetailDialog({
   onQuickAdd: (wallet: Wallet) => void;
 }) {
   const [items, setItems] = useState<Transaction[]>([]);
+  const [allocations, setAllocations] = useState<WalletAllocation[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [reconciliation, setReconciliation] = useState<
@@ -533,6 +746,18 @@ function WalletDetailDialog({
       });
     return () => controller.abort();
   }, [wallet.id, reconciliation, offset]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getWalletAllocations(wallet.id, controller.signal)
+      .then((result) => {
+        if (!controller.signal.aborted) setAllocations(result.allocations);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAllocations([]);
+      });
+    return () => controller.abort();
+  }, [wallet.id]);
 
   function changeReconciliation(next: "all" | ReconciliationStatus) {
     setReconciliation(next);
@@ -698,6 +923,41 @@ function WalletDetailDialog({
             </button>
           </div>
         )}
+        <section className="wallet-allocation-history">
+          <h3>Riwayat alokasi saldo</h3>
+          <p>Perpindahan pencatatan antara dompet ini dan Tanpa dompet.</p>
+          {allocations.length ? (
+            <ul className="wallet-mutations">
+              {allocations.map((allocation) => {
+                const incoming = allocation.direction === "to_wallet";
+                return (
+                  <li key={allocation.id}>
+                    <span
+                      className={`wallet-mutation-mark ${incoming ? "positive" : "negative"}`}
+                    >
+                      {incoming ? "↙" : "↗"}
+                    </span>
+                    <span className="wallet-mutation-copy">
+                      <b>
+                        {allocation.description ||
+                          (incoming ? "Dari Tanpa dompet" : "Ke Tanpa dompet")}
+                      </b>
+                      <small>
+                        {shortDate.format(new Date(allocation.createdAt))}
+                      </small>
+                    </span>
+                    <strong className={incoming ? "positive" : "negative"}>
+                      {incoming ? "+" : "−"}
+                      {displayMoney(allocation.amount, hidden)}
+                    </strong>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="wallet-allocation-empty">Belum ada alokasi saldo.</p>
+          )}
+        </section>
         <button
           className="secondary-button wallet-detail-close"
           type="button"
@@ -818,10 +1078,14 @@ export function WalletsPage({
   onQuickAdd: (wallet: Wallet) => void;
 }) {
   const [wallets, setWallets] = useState<Wallet[] | null>(null);
+  const [overviews, setOverviews] = useState<WalletOverview[]>([]);
   const [view, setView] = useState<"active" | "archived">("active");
   const [operation, setOperation] = useState<Operation | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [detail, setDetail] = useState<Wallet | null>(null);
+  const [allocationWalletId, setAllocationWalletId] = useState<
+    string | null | undefined
+  >(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -837,6 +1101,7 @@ export function WalletsPage({
     if (online && !stale) return;
     setOperation(null);
     setConfirmation(null);
+    setAllocationWalletId(undefined);
   }, [online, stale]);
 
   useEffect(() => {
@@ -849,6 +1114,8 @@ export function WalletsPage({
       .then((result) => {
         if (controller.signal.aborted) return;
         setWallets(result.data.wallets);
+        // Snapshot lama dapat belum memiliki overview; hindari crash saat offline.
+        setOverviews(result.data.overviews ?? []);
         setStale(result.stale);
         setSnapshotAt(result.syncedAt);
       })
@@ -915,8 +1182,22 @@ export function WalletsPage({
     viewMode,
     true,
   ).length;
-  const total = filterWallets(allWallets, userId, viewMode, false).reduce(
-    (sum, wallet) => sum + wallet.balance,
+  const visibleOverviews = overviews.filter(
+    (overview) => viewMode === "couple" || overview.ownerUserId === userId,
+  );
+  const ownOverview = overviews.find(
+    (overview) => overview.ownerUserId === userId,
+  );
+  const total = visibleOverviews.reduce(
+    (sum, overview) => sum + overview.cashBalance,
+    0,
+  );
+  const walletTotal = visibleOverviews.reduce(
+    (sum, overview) => sum + overview.walletBalance,
+    0,
+  );
+  const unallocatedTotal = visibleOverviews.reduce(
+    (sum, overview) => sum + overview.unallocatedBalance,
     0,
   );
   const mutable = online && !stale;
@@ -981,20 +1262,22 @@ export function WalletsPage({
       )}
       <section className="wallets-hero">
         <div>
-          <p className="eyebrow light">Saldo yang terlacak</p>
-          <span>
-            Total {viewMode === "solo" ? "dompetmu" : "dompet kalian"}
-          </span>
+          <p className="eyebrow light">Saldo tersedia</p>
+          <span>Total {viewMode === "solo" ? "milikmu" : "kalian"}</span>
           <strong>{displayMoney(total, hidden)}</strong>
         </div>
         <div>
-          <span>Dompet aktif</span>
-          <b>{filterWallets(allWallets, userId, viewMode, false).length}</b>
+          <span>Dalam dompet</span>
+          <b>{displayMoney(walletTotal, hidden)}</b>
           <small>
-            {ownActive.filter((wallet) => wallet.defaultWallet).length
-              ? "Dompet utama siap dipakai"
-              : "Belum ada dompet utama"}
+            {filterWallets(allWallets, userId, viewMode, false).length} dompet
+            aktif
           </small>
+        </div>
+        <div>
+          <span>Tanpa dompet</span>
+          <b>{displayMoney(unallocatedTotal, hidden)}</b>
+          <small>Belum dialokasikan ke dompet</small>
         </div>
       </section>
       {loading && !wallets ? (
@@ -1015,8 +1298,62 @@ export function WalletsPage({
             Coba lagi
           </button>
         </div>
-      ) : grouped.length ? (
+      ) : grouped.length || (view === "active" && visibleOverviews.length) ? (
         <div className="wallet-sections">
+          {view === "active" &&
+            visibleOverviews.map((overview) => {
+              const owned = overview.ownerUserId === userId;
+              return (
+                <section
+                  className="wallet-group"
+                  key={`unallocated:${overview.ownerUserId}`}
+                >
+                  <div className="wallet-group-heading">
+                    <div>
+                      <span>{owned ? "Milikmu" : "Milik pasangan"}</span>
+                      <h2>Belum dialokasikan</h2>
+                    </div>
+                    <small>Virtual</small>
+                  </div>
+                  <div className="wallet-grid">
+                    <article className="wallet-card wallet-card-unallocated">
+                      <div className="wallet-card-top">
+                        <span className="wallet-mark" aria-hidden="true">
+                          ∅
+                        </span>
+                        <span className="scope-badge">
+                          {owned ? "Milikmu" : "Pasangan"}
+                        </span>
+                      </div>
+                      <div className="wallet-card-copy">
+                        <small>SALDO VIRTUAL</small>
+                        <h3>Tanpa dompet</h3>
+                        <p>
+                          Saldo tersedia yang belum dicatat di cash, bank, atau
+                          e-wallet tertentu.
+                        </p>
+                      </div>
+                      <strong>
+                        {displayMoney(overview.unallocatedBalance, hidden)}
+                      </strong>
+                      <div className="wallet-card-actions">
+                        {owned ? (
+                          <button
+                            type="button"
+                            disabled={!mutable || ownActive.length === 0}
+                            onClick={() => setAllocationWalletId(null)}
+                          >
+                            Atur saldo
+                          </button>
+                        ) : (
+                          <span className="readonly-badge">Hanya lihat</span>
+                        )}
+                      </div>
+                    </article>
+                  </div>
+                </section>
+              );
+            })}
           {grouped.map((group) => (
             <section
               className="wallet-group"
@@ -1103,6 +1440,13 @@ export function WalletsPage({
                             >
                               Kelola
                             </button>
+                            <button
+                              type="button"
+                              disabled={!enabled}
+                              onClick={() => setAllocationWalletId(wallet.id)}
+                            >
+                              Atur saldo
+                            </button>
                             {!wallet.defaultWallet && (
                               <button
                                 type="button"
@@ -1164,8 +1508,21 @@ export function WalletsPage({
         <WalletForm
           operation={operation}
           wallets={ownActive}
+          availableBalance={ownOverview?.unallocatedBalance}
           onClose={() => setOperation(null)}
           onSaved={savedWallet}
+        />
+      )}
+      {allocationWalletId !== undefined && ownOverview && (
+        <WalletAllocationDialog
+          wallets={ownActive}
+          overview={ownOverview}
+          initialWalletId={allocationWalletId ?? undefined}
+          onClose={() => setAllocationWalletId(undefined)}
+          onSaved={() => {
+            setAllocationWalletId(undefined);
+            savedWallet();
+          }}
         />
       )}
       {confirmation && (

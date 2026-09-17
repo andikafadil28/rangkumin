@@ -11,6 +11,9 @@ import type {
   UpdateWalletInput,
   User,
   Wallet,
+  WalletAllocation,
+  WalletAllocationDirection,
+  WalletOverview,
   WalletTransferInput,
 } from "./api";
 
@@ -22,6 +25,7 @@ type DemoState = {
   reminders: Reminder[];
   notifications: Notification[];
   wallets: Wallet[];
+  allocations: WalletAllocation[];
   idempotency: Map<string, Transaction>;
 };
 
@@ -95,7 +99,7 @@ function createInitialState(): DemoState {
       icon: "bank",
       color: "#507C6B",
       groupName: "bank",
-      initialBalance: 0,
+      initialBalance: 2_000_000,
       defaultWallet: true,
       sortOrder: 0,
       isArchived: false,
@@ -131,7 +135,7 @@ function createInitialState(): DemoState {
       icon: "bank",
       color: "#6C78A8",
       groupName: "bank",
-      initialBalance: 0,
+      initialBalance: 1_000_000,
       defaultWallet: true,
       sortOrder: 0,
       isArchived: false,
@@ -248,6 +252,10 @@ function createInitialState(): DemoState {
       "Nonton berdua",
     ),
   ];
+  for (const income of transactions.slice(0, 2)) {
+    income.walletId = null;
+    income.wallet = null;
+  }
   return {
     categories,
     transactions,
@@ -385,6 +393,7 @@ function createInitialState(): DemoState {
       },
     ],
     wallets,
+    allocations: [],
     idempotency: new Map(),
   };
 }
@@ -418,7 +427,7 @@ function recalculateGoal(goal: SavingsGoal) {
 }
 
 function walletBalance(wallet: Wallet) {
-  return state.transactions
+  const transactionBalance = state.transactions
     .filter((transaction) => !transaction.deletedAt)
     .reduce((balance, transaction) => {
       if (transaction.type === "income" && transaction.walletId === wallet.id)
@@ -446,6 +455,16 @@ function walletBalance(wallet: Wallet) {
         return balance + transaction.amount;
       return balance;
     }, wallet.initialBalance);
+  return state.allocations
+    .filter((allocation) => allocation.walletId === wallet.id)
+    .reduce(
+      (balance, allocation) =>
+        balance +
+        (allocation.direction === "to_wallet"
+          ? allocation.amount
+          : -allocation.amount),
+      transactionBalance,
+    );
 }
 
 function walletView(wallet: Wallet): Wallet {
@@ -462,6 +481,27 @@ function walletReference(wallet: Wallet | undefined) {
         color: wallet.color,
       }
     : null;
+}
+
+function walletOverview(ownerUserId: string): WalletOverview {
+  const cashBalance = state.transactions
+    .filter((item) => !item.deletedAt && item.ownerUserId === ownerUserId)
+    .reduce((total, item) => {
+      if (item.type === "income" || item.type === "saving_withdrawal")
+        return total + item.amount;
+      if (item.type === "expense" || item.type === "saving_deposit")
+        return total - item.amount;
+      return total;
+    }, 0);
+  const walletBalanceTotal = state.wallets
+    .filter((wallet) => wallet.ownerUserId === ownerUserId)
+    .reduce((total, wallet) => total + walletBalance(wallet), 0);
+  return {
+    ownerUserId,
+    cashBalance,
+    walletBalance: walletBalanceTotal,
+    unallocatedBalance: cashBalance - walletBalanceTotal,
+  };
 }
 
 function summary(owner?: string): Summary {
@@ -724,6 +764,7 @@ export async function demoRequestJson<T>(
         .filter((wallet) => !owner || wallet.ownerUserId === owner)
         .filter((wallet) => includeArchived || !wallet.isArchived)
         .map(walletView),
+      overviews: users.map((user) => walletOverview(user.id)),
     }) as T;
   }
 
@@ -740,6 +781,9 @@ export async function demoRequestJson<T>(
     )
       throw new Error("Nama dompet sudah digunakan.");
     const now = new Date().toISOString();
+    const initialBalance = input.initial_balance ?? 0;
+    if (initialBalance > walletOverview(currentUser.id).unallocatedBalance)
+      throw new Error("Saldo Tanpa dompet tidak mencukupi.");
     const shouldBeDefault =
       input.default_wallet ||
       !state.wallets.some(
@@ -759,17 +803,81 @@ export async function demoRequestJson<T>(
       icon: input.icon?.trim() || null,
       color: input.color?.toUpperCase() || null,
       groupName: input.group_name?.trim() || input.type,
-      initialBalance: input.initial_balance ?? 0,
+      initialBalance: 0,
       defaultWallet: Boolean(shouldBeDefault),
       sortOrder: input.sort_order ?? 0,
       isArchived: false,
       archivedAt: null,
-      balance: input.initial_balance ?? 0,
+      balance: 0,
       createdAt: now,
       updatedAt: now,
     };
     state.wallets.push(wallet);
+    if (initialBalance > 0) {
+      state.allocations.unshift({
+        id: crypto.randomUUID(),
+        ownerUserId: currentUser.id,
+        walletId: wallet.id,
+        direction: "to_wallet",
+        amount: initialBalance,
+        description: null,
+        createdAt: now,
+      });
+    }
     return clone({ wallet: walletView(wallet) }) as T;
+  }
+
+  if (pathname === "/api/wallets/allocations" && method === "POST") {
+    const input = parseBody<{
+      wallet_id: string;
+      direction: WalletAllocationDirection;
+      amount: number;
+      description?: string;
+    }>(options);
+    const wallet = findWallet(input.wallet_id);
+    if (input.direction !== "to_wallet" && input.direction !== "to_unallocated")
+      throw new Error("Arah alokasi tidak valid.");
+    if (wallet.ownerUserId !== currentUser.id || wallet.isArchived)
+      throw new Error("Dompet demo tidak ditemukan.");
+    const maximum =
+      input.direction === "to_wallet"
+        ? walletOverview(currentUser.id).unallocatedBalance
+        : walletBalance(wallet);
+    if (!Number.isSafeInteger(input.amount) || input.amount <= 0)
+      throw new Error("Nominal alokasi tidak valid.");
+    if (input.amount > maximum)
+      throw new Error(
+        input.direction === "to_wallet"
+          ? "Saldo Tanpa dompet tidak mencukupi."
+          : "Saldo dompet tidak mencukupi.",
+      );
+    const allocation: WalletAllocation = {
+      id: crypto.randomUUID(),
+      ownerUserId: currentUser.id,
+      walletId: wallet.id,
+      direction: input.direction,
+      amount: input.amount,
+      description: input.description?.trim() || null,
+      createdAt: new Date().toISOString(),
+    };
+    state.allocations.unshift(allocation);
+    return clone({
+      allocation,
+      wallet: walletView(wallet),
+      overview: walletOverview(currentUser.id),
+    }) as T;
+  }
+
+  const walletAllocationsMatch = pathname.match(
+    /^\/api\/wallets\/([^/]+)\/allocations$/,
+  );
+  if (walletAllocationsMatch && method === "GET") {
+    const wallet = findWallet(walletAllocationsMatch[1]!);
+    return clone({
+      allocations: state.allocations.filter(
+        (allocation) => allocation.walletId === wallet.id,
+      ),
+    }) as T;
   }
 
   if (pathname === "/api/wallets/transfer" && method === "POST") {
@@ -1309,6 +1417,10 @@ function buildDemoDashboard() {
     ).items.slice(0, 5),
     unread: state.notifications.filter((item) => !item.readAt).length,
     categories: clone(state.categories),
+    wallets: {
+      wallets: clone(state.wallets),
+      overviews: users.map((user) => walletOverview(user.id)),
+    },
   };
 }
 

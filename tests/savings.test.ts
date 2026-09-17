@@ -187,7 +187,7 @@ describe("savings mutations", () => {
     expect(insert).toContain("w.owner_user_id = ?2");
   });
 
-  it("menolak deposit saat saldo tunai tidak cukup", async () => {
+  it("menolak deposit tanpa wallet saat saldo Tanpa dompet tidak cukup", async () => {
     const database = createDatabase((sql) => {
       if (sql.includes("t.idempotency_key = ?1")) {
         return { first: () => null };
@@ -209,6 +209,11 @@ describe("savings mutations", () => {
         idempotencyKey: "saving-request-0002",
       }),
     ).rejects.toBeInstanceOf(InsufficientBalanceError);
+    const insert = database.sql.find((sql) =>
+      sql.includes("INSERT INTO transactions"),
+    );
+    expect(insert).toContain("wallet_balance_allocations");
+    expect(insert).toContain("w.owner_user_id = ?2");
   });
 
   it("menyembunyikan personal goal pasangan dari mutation", async () => {

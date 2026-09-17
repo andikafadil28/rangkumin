@@ -3,10 +3,12 @@ import {
   AuthRequiredError,
   NetworkError,
   commitImportFile,
+  createWalletAllocation,
   createWallet,
   createTransaction,
   downloadFile,
   getTransactions,
+  getWalletAllocations,
   getWallets,
   previewImport,
   requestJson,
@@ -157,6 +159,13 @@ describe("requestJson", () => {
       },
       "wallet-transfer-0001",
     );
+    await createWalletAllocation({
+      wallet_id: "wallet-1",
+      direction: "to_wallet",
+      amount: 25_000,
+      description: "Saldo tunai lama",
+    });
+    await getWalletAllocations("wallet-1");
 
     expect(fetchMock.mock.calls[0]![0]).toBe(
       "/api/wallets?owner=user-1&archived=true",
@@ -170,6 +179,16 @@ describe("requestJson", () => {
         "Idempotency-Key": "wallet-transfer-0001",
       }),
     });
+    expect(fetchMock.mock.calls[3]![0]).toBe("/api/wallets/allocations");
+    expect(JSON.parse(String(fetchMock.mock.calls[3]![1]?.body))).toEqual({
+      wallet_id: "wallet-1",
+      direction: "to_wallet",
+      amount: 25_000,
+      description: "Saldo tunai lama",
+    });
+    expect(fetchMock.mock.calls[4]![0]).toBe(
+      "/api/wallets/wallet-1/allocations",
+    );
   });
 });
 

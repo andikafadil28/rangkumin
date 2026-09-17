@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { AuthRequiredError } from "./api";
-import type { Summary, SummaryItem, Transaction, getDashboard } from "./api";
+import type {
+  Summary,
+  SummaryItem,
+  Transaction,
+  WalletOverview,
+  getDashboard,
+} from "./api";
 import { TransactionsPage } from "./TransactionsPage";
 import { WalletsPage } from "./WalletsPage";
 import { SavingsPage } from "./SavingsPage";
@@ -128,13 +134,16 @@ function PersonCard({
   item,
   current,
   balance,
+  walletOverview,
   hidden,
 }: {
   item: SummaryItem;
   current: boolean;
   balance: number;
+  walletOverview?: WalletOverview;
   hidden: boolean;
 }) {
+  const hasAllocatedBalance = (walletOverview?.walletBalance ?? 0) !== 0;
   return (
     <article className={`person-card ${current ? "is-current" : ""}`}>
       <div className="person-head">
@@ -152,10 +161,31 @@ function PersonCard({
           <LiveMoney value={Math.abs(item.net)} hidden={hidden} />
         </span>
       </div>
-      <p className="balance-label">Saldo tunai</p>
+      <p className="balance-label">
+        {hasAllocatedBalance ? "Saldo tersedia" : "Saldo tunai"}
+      </p>
       <p className="person-balance">
         <LiveMoney value={balance} hidden={hidden} />
       </p>
+      {hasAllocatedBalance && walletOverview && (
+        <div className="balance-breakdown">
+          <span>
+            Dalam dompet
+            <b>
+              <LiveMoney value={walletOverview.walletBalance} hidden={hidden} />
+            </b>
+          </span>
+          <span>
+            Tanpa dompet
+            <b>
+              <LiveMoney
+                value={walletOverview.unallocatedBalance}
+                hidden={hidden}
+              />
+            </b>
+          </span>
+        </div>
+      )}
       <div className="money-pair">
         <span>
           <i className="dot income" />
@@ -856,6 +886,9 @@ export function App() {
                         (balance) => balance.userId === item.userId,
                       )?.balance ?? 0
                     }
+                    walletOverview={data.wallets?.overviews.find(
+                      (overview) => overview.ownerUserId === item.userId,
+                    )}
                     hidden={balancesHidden}
                   />
                 ))}

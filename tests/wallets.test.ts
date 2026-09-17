@@ -8,8 +8,11 @@ import {
 import {
   archiveWallet,
   createWallet,
+  createWalletAllocation,
   deleteWallet,
   getWalletBalance,
+  listWalletAllocations,
+  listWalletOverviews,
   listWallets,
   serializeWallet,
   setDefaultWallet,
@@ -115,6 +118,39 @@ describe("wallet queries", () => {
     expect(database.calls[0]!.sql).toContain("t.type = 'income'");
     expect(database.calls[0]!.sql).toContain("t.type = 'wallet_transfer'");
     expect(database.calls[0]!.sql).toContain("t.deleted_at IS NULL");
+    expect(database.calls[0]!.sql).toContain("wallet_balance_allocations");
+  });
+
+  it("menghitung overview semua user termasuk wallet yang diarsipkan", async () => {
+    const database = createDatabase(() => ({
+      all: [
+        {
+          owner_user_id: "user-1",
+          cash_balance: 1000000,
+          wallet_balance: 750000,
+        },
+        {
+          owner_user_id: "user-2",
+          cash_balance: 400000,
+          wallet_balance: 400000,
+        },
+      ],
+    }));
+
+    await expect(listWalletOverviews(database)).resolves.toEqual([
+      {
+        ownerUserId: "user-1",
+        cashBalance: 1000000,
+        walletBalance: 750000,
+        unallocatedBalance: 250000,
+      },
+      {
+        ownerUserId: "user-2",
+        cashBalance: 400000,
+        walletBalance: 400000,
+        unallocatedBalance: 0,
+      },
+    ]);
   });
 
   it("mengembalikan saldo terhitung dan 404 untuk wallet yang tidak ada", async () => {
@@ -136,6 +172,8 @@ describe("wallet mutations", () => {
       name: "Rekening Utama",
       description: "Rekening gaji",
       color: "#AABBCC",
+      initial_balance: 0,
+      balance: 500000,
     });
     const database = createDatabase((sql) => {
       if (sql.includes("normalized_name = ?2")) {
@@ -165,7 +203,32 @@ describe("wallet mutations", () => {
     );
     expect(insert?.bind).toContain("rekening utama");
     expect(insert?.bind).toContain("#AABBCC");
-    expect(insert?.bind).toContain(1);
+    expect(insert?.sql).toContain("0, 0");
+    const allocation = database.calls.find((call) =>
+      call.sql.includes("INSERT INTO wallet_balance_allocations"),
+    );
+    expect(allocation?.bind).toContain(500000);
+    expect(wallet.initialBalance).toBe(0);
+  });
+
+  it("menolak saldo awal yang melebihi saldo tanpa dompet", async () => {
+    const database = createDatabase((sql) => {
+      if (sql.includes("normalized_name = ?2")) return { first: () => null };
+      if (sql.includes("WHERE owner_user_id = ?1 AND is_archived = 0")) {
+        return { first: () => null };
+      }
+      if (sql.includes("INSERT INTO wallets")) return { changes: 0 };
+      return { changes: 0 };
+    });
+
+    await expect(
+      createWallet(database, {
+        ownerUserId: "user-1",
+        type: "bank",
+        name: "Terlalu Besar",
+        initialBalance: 2000000,
+      }),
+    ).rejects.toBeInstanceOf(InsufficientBalanceError);
   });
 
   it("menolak archive pada default wallet", async () => {
@@ -224,6 +287,139 @@ describe("wallet mutations", () => {
         ownerUserId: "user-1",
       }),
     ).rejects.toBeInstanceOf(ConflictError);
+  });
+});
+
+describe("wallet allocations", () => {
+  const allocationRow = {
+    id: "allocation-1",
+    owner_user_id: "user-1",
+    wallet_id: "wallet-1",
+    direction: "to_wallet",
+    amount: 250000,
+    description: "Dana rekening",
+    created_at: "2026-09-17T00:00:00.000Z",
+  } as const;
+
+  it("mengalokasikan saldo tanpa dompet dengan conditional insert", async () => {
+    const database = createDatabase((sql) => {
+      if (sql.includes("INSERT INTO wallet_balance_allocations")) {
+        return { changes: 1 };
+      }
+      if (sql.includes("SELECT id, owner_user_id") && sql.includes("LIMIT 1")) {
+        return { first: () => allocationRow };
+      }
+      if (sql.includes("FROM users u")) {
+        return {
+          first: () => ({
+            owner_user_id: "user-1",
+            cash_balance: 1250000,
+            wallet_balance: 1000000,
+          }),
+        };
+      }
+      if (sql.includes("FROM wallets w")) {
+        return { first: () => walletRow({ balance: 1000000 }) };
+      }
+      return {};
+    });
+
+    const result = await createWalletAllocation(database, {
+      ownerUserId: "user-1",
+      walletId: "wallet-1",
+      direction: "to_wallet",
+      amount: 250000,
+      description: "  Dana   rekening ",
+    });
+
+    expect(result.allocation).toMatchObject({
+      walletId: "wallet-1",
+      direction: "to_wallet",
+      amount: 250000,
+      description: "Dana rekening",
+    });
+    expect(result.wallet.balance).toBe(1000000);
+    expect(result.overview.unallocatedBalance).toBe(250000);
+    const insert = database.calls.find((call) =>
+      call.sql.includes("INSERT INTO wallet_balance_allocations"),
+    );
+    expect(insert?.sql).toContain("target.is_archived = 0");
+    expect(insert?.sql).toContain("'to_unallocated'");
+  });
+
+  it("mendukung alokasi balik ke tanpa dompet", async () => {
+    const reverse = { ...allocationRow, direction: "to_unallocated" as const };
+    const database = createDatabase((sql) => {
+      if (sql.includes("INSERT INTO wallet_balance_allocations"))
+        return { changes: 1 };
+      if (sql.includes("SELECT id, owner_user_id") && sql.includes("LIMIT 1")) {
+        return { first: () => reverse };
+      }
+      if (sql.includes("FROM users u")) {
+        return {
+          first: () => ({
+            owner_user_id: "user-1",
+            cash_balance: 750000,
+            wallet_balance: 500000,
+          }),
+        };
+      }
+      if (sql.includes("FROM wallets w")) {
+        return { first: () => walletRow({ balance: 500000 }) };
+      }
+      return {};
+    });
+
+    const result = await createWalletAllocation(database, {
+      ownerUserId: "user-1",
+      walletId: "wallet-1",
+      direction: "to_unallocated",
+      amount: 250000,
+    });
+    expect(result.allocation.direction).toBe("to_unallocated");
+  });
+
+  it("membedakan over-allocation dan wallet yang bukan milik user", async () => {
+    const insufficient = createDatabase((sql) => ({
+      changes: 0,
+      first: () =>
+        sql.includes("SELECT id FROM wallets") ? { id: "wallet-1" } : null,
+    }));
+    await expect(
+      createWalletAllocation(insufficient, {
+        ownerUserId: "user-1",
+        walletId: "wallet-1",
+        direction: "to_wallet",
+        amount: 1000000,
+      }),
+    ).rejects.toBeInstanceOf(InsufficientBalanceError);
+
+    const notOwned = createDatabase(() => ({ changes: 0, first: () => null }));
+    await expect(
+      createWalletAllocation(notOwned, {
+        ownerUserId: "user-1",
+        walletId: "wallet-user-2",
+        direction: "to_unallocated",
+        amount: 1,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("menampilkan history alokasi kepada kedua pengguna", async () => {
+    const database = createDatabase((sql) => {
+      if (sql.includes("FROM wallets w")) return { first: () => walletRow() };
+      if (sql.includes("FROM wallet_balance_allocations"))
+        return { all: [allocationRow] };
+      return {};
+    });
+    await expect(
+      listWalletAllocations(database, "wallet-1"),
+    ).resolves.toMatchObject([{ id: "allocation-1", walletId: "wallet-1" }]);
+
+    const missing = createDatabase(() => ({ first: () => null }));
+    await expect(
+      listWalletAllocations(missing, "wallet-missing"),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 

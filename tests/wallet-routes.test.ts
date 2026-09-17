@@ -103,16 +103,29 @@ function createTestApp(database: D1Database) {
 
 describe("wallet routes", () => {
   it("menampilkan wallet kedua user untuk read-only view", async () => {
-    const database = createDatabase(() => ({
-      all: [
-        walletRow(),
-        walletRow({
-          id: "wallet-partner",
-          owner_user_id: "user-2",
-          name: "Cash Pasangan",
-          type: "cash",
-        }),
-      ],
+    const database = createDatabase((sql) => ({
+      all: sql.includes("FROM users u")
+        ? [
+            {
+              owner_user_id: "user-1",
+              cash_balance: 750000,
+              wallet_balance: 500000,
+            },
+            {
+              owner_user_id: "user-2",
+              cash_balance: 500000,
+              wallet_balance: 500000,
+            },
+          ]
+        : [
+            walletRow(),
+            walletRow({
+              id: "wallet-partner",
+              owner_user_id: "user-2",
+              name: "Cash Pasangan",
+              type: "cash",
+            }),
+          ],
     }));
     const { app, environment } = createTestApp(database);
 
@@ -124,11 +137,41 @@ describe("wallet routes", () => {
         { id: "wallet-1", ownerUserId: "user-1" },
         { id: "wallet-partner", ownerUserId: "user-2" },
       ],
+      overviews: [
+        { ownerUserId: "user-1", unallocatedBalance: 250000 },
+        { ownerUserId: "user-2", unallocatedBalance: 0 },
+      ],
+    });
+  });
+
+  it("tidak menerapkan filter wallet ke overview", async () => {
+    const database = createDatabase((sql) => ({
+      all: sql.includes("FROM users u")
+        ? [
+            {
+              owner_user_id: "user-2",
+              cash_balance: 300000,
+              wallet_balance: 100000,
+            },
+          ]
+        : [walletRow()],
+    }));
+    const { app, environment } = createTestApp(database);
+    const response = await app.request(
+      "/wallets?owner=user-1",
+      {},
+      environment,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      wallets: [{ ownerUserId: "user-1" }],
+      overviews: [{ ownerUserId: "user-2", unallocatedBalance: 200000 }],
     });
   });
 
   it("membuat wallet untuk current user", async () => {
-    const created = walletRow();
+    const created = walletRow({ initial_balance: 0 });
     const database = createDatabase((sql) => {
       if (sql.includes("normalized_name = ?2")) {
         return { first: () => null };
@@ -166,6 +209,84 @@ describe("wallet routes", () => {
       call.sql.includes("INSERT INTO wallets"),
     );
     expect(insert?.bind).toContain("user-1");
+    expect(
+      database.calls.some((call) =>
+        call.sql.includes("INSERT INTO wallet_balance_allocations"),
+      ),
+    ).toBe(true);
+  });
+
+  it("membuat alokasi dan mengembalikan wallet serta overview", async () => {
+    const database = createDatabase((sql) => {
+      if (sql.includes("INSERT INTO wallet_balance_allocations"))
+        return { changes: 1 };
+      if (sql.includes("SELECT id, owner_user_id") && sql.includes("LIMIT 1")) {
+        return {
+          first: () => ({
+            id: "allocation-1",
+            owner_user_id: "user-1",
+            wallet_id: "wallet-1",
+            direction: "to_wallet",
+            amount: 100000,
+            description: null,
+            created_at: "2026-09-17T00:00:00.000Z",
+          }),
+        };
+      }
+      if (sql.includes("FROM users u")) {
+        return {
+          first: () => ({
+            owner_user_id: "user-1",
+            cash_balance: 800000,
+            wallet_balance: 600000,
+          }),
+        };
+      }
+      if (sql.includes("FROM wallets w")) {
+        return { first: () => walletRow({ balance: 600000 }) };
+      }
+      return {};
+    });
+    const { app, environment } = createTestApp(database);
+    const response = await app.request(
+      "/wallets/allocations",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wallet_id: "wallet-1",
+          direction: "to_wallet",
+          amount: 100000,
+        }),
+      },
+      environment,
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      allocation: { direction: "to_wallet", amount: 100000 },
+      wallet: { id: "wallet-1", balance: 600000 },
+      overview: { ownerUserId: "user-1", unallocatedBalance: 200000 },
+    });
+  });
+
+  it("menolak alokasi ke wallet pasangan", async () => {
+    const database = createDatabase(() => ({ changes: 0, first: () => null }));
+    const { app, environment } = createTestApp(database);
+    const response = await app.request(
+      "/wallets/allocations",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wallet_id: "wallet-user-2",
+          direction: "to_wallet",
+          amount: 100000,
+        }),
+      },
+      environment,
+    );
+    expect(response.status).toBe(404);
   });
 
   it("menolak payload wallet dengan warna tidak valid", async () => {

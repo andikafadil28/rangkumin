@@ -40,6 +40,12 @@ describe("demo frontend-only", () => {
   it("mensimulasikan CRUD dan transfer wallet tanpa backend", async () => {
     const initial = await demoRequestJson<{
       wallets: Array<{ id: string; ownerUserId: string; balance: number }>;
+      overviews: Array<{
+        ownerUserId: string;
+        cashBalance: number;
+        walletBalance: number;
+        unallocatedBalance: number;
+      }>;
     }>("/api/wallets");
     const source = initial.wallets.find(
       (wallet) => wallet.ownerUserId === "demo-user-1",
@@ -52,6 +58,21 @@ describe("demo frontend-only", () => {
         type: "cash",
         name: "Cash Cadangan",
         initial_balance: 100_000,
+      }),
+    });
+
+    const beforeAllocation = initial.overviews.find(
+      (overview) => overview.ownerUserId === "demo-user-1",
+    )!;
+    const allocation = await demoRequestJson<{
+      overview: { cashBalance: number; unallocatedBalance: number };
+    }>("/api/wallets/allocations", {
+      method: "POST",
+      body: JSON.stringify({
+        wallet_id: created.wallet.id,
+        direction: "to_wallet",
+        amount: 25_000,
+        description: "Alokasi demo",
       }),
     });
 
@@ -69,10 +90,27 @@ describe("demo frontend-only", () => {
       wallets: Array<{ id: string; balance: number }>;
     }>("/api/wallets");
 
+    expect(allocation.overview.cashBalance).toBe(beforeAllocation.cashBalance);
+    expect(allocation.overview.unallocatedBalance).toBe(
+      beforeAllocation.unallocatedBalance - 125_000,
+    );
     expect(
       updated.wallets.find((wallet) => wallet.id === created.wallet.id)
         ?.balance,
-    ).toBe(150_000);
+    ).toBe(175_000);
+    const history = await demoRequestJson<{
+      allocations: Array<{ description: string | null; amount: number }>;
+    }>(`/api/wallets/${created.wallet.id}/allocations`);
+    expect(history.allocations).toHaveLength(2);
+    expect(history.allocations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          description: "Alokasi demo",
+          amount: 25_000,
+        }),
+        expect.objectContaining({ description: null, amount: 100_000 }),
+      ]),
+    );
     const filtered = await demoRequestJson<{ total: number }>(
       `/api/transactions?wallet=${created.wallet.id}&offset=0`,
     );
@@ -148,11 +186,18 @@ describe("demo frontend-only", () => {
   });
 
   it("memutasi saldo tabungan secara lokal", async () => {
+    const wallets = await demoRequestJson<{
+      wallets: Array<{ id: string; ownerUserId: string; balance: number }>;
+    }>("/api/wallets");
+    const selectedWallet = wallets.wallets.find(
+      (wallet) => wallet.ownerUserId === "demo-user-1",
+    )!;
     await demoRequestJson("/api/savings/goals/goal-1/deposits", {
       method: "POST",
       body: JSON.stringify({
         amount: 500_000,
         transaction_date: "2026-09-07",
+        wallet_id: selectedWallet.id,
       }),
     });
     await demoRequestJson("/api/savings/transfers", {
@@ -177,6 +222,15 @@ describe("demo frontend-only", () => {
         (balance) => balance.userId === "demo-user-1",
       )?.balance,
     ).toBe(6_915_000);
+    const walletTransactions = await demoRequestJson<{
+      items: Array<{ type: string; walletId: string | null }>;
+    }>(`/api/transactions?wallet=${selectedWallet.id}`);
+    expect(walletTransactions.items).toContainEqual(
+      expect.objectContaining({
+        type: "saving_deposit",
+        walletId: selectedWallet.id,
+      }),
+    );
   });
 
   it("menolak fitur yang sengaja dinonaktifkan", async () => {

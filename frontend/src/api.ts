@@ -47,6 +47,32 @@ export type WalletTransferInput = {
   transaction_date: string;
   description?: string;
 };
+export type WalletOverview = {
+  ownerUserId: string;
+  cashBalance: number;
+  walletBalance: number;
+  unallocatedBalance: number;
+};
+export type WalletAllocationDirection = "to_wallet" | "to_unallocated";
+export type WalletAllocation = {
+  id: string;
+  ownerUserId: string;
+  walletId: string;
+  direction: WalletAllocationDirection;
+  amount: number;
+  description: string | null;
+  createdAt: string;
+};
+export type CreateWalletAllocationInput = {
+  wallet_id: string;
+  direction: WalletAllocationDirection;
+  amount: number;
+  description?: string;
+};
+export type WalletsResponse = {
+  wallets: Wallet[];
+  overviews: WalletOverview[];
+};
 export type SummaryItem = {
   userId: string;
   displayName: string;
@@ -753,7 +779,7 @@ export function getWallets(
   if (filters.owner) query.set("owner", filters.owner);
   if (filters.includeArchived) query.set("archived", "true");
   const suffix = query.size ? `?${query}` : "";
-  return getJson<{ wallets: Wallet[] }>(`/api/wallets${suffix}`, signal);
+  return getJson<WalletsResponse>(`/api/wallets${suffix}`, signal);
 }
 
 export function getWallet(walletId: string, signal?: AbortSignal) {
@@ -828,6 +854,21 @@ export function transferBetweenWallets(
     },
     body: JSON.stringify(input),
   });
+}
+
+export function createWalletAllocation(input: CreateWalletAllocationInput) {
+  return sendJson<{
+    allocation: WalletAllocation;
+    wallet: Wallet;
+    overview: WalletOverview;
+  }>("/api/wallets/allocations", input);
+}
+
+export function getWalletAllocations(walletId: string, signal?: AbortSignal) {
+  return getJson<{ allocations: WalletAllocation[] }>(
+    `/api/wallets/${encodeURIComponent(walletId)}/allocations`,
+    signal,
+  );
 }
 
 export function getBudgets(signal?: AbortSignal) {
@@ -920,7 +961,7 @@ export async function getDashboard(signal?: AbortSignal, solo = false) {
   const summaryUrl = solo
     ? `/api/summary?owner=${encodeURIComponent(identity.user.id)}`
     : "/api/summary";
-  const [summary, savings, transactions, notifications, categories] =
+  const [summary, savings, transactions, notifications, categories, wallets] =
     await Promise.all([
       getJson<Summary>(summaryUrl, signal),
       getJson<SavingsOverview>("/api/savings/overview", signal),
@@ -933,6 +974,7 @@ export async function getDashboard(signal?: AbortSignal, solo = false) {
         signal,
       ),
       getCategories(signal),
+      getWallets({ includeArchived: true }, signal),
     ]);
   return {
     user: identity.user,
@@ -941,5 +983,6 @@ export async function getDashboard(signal?: AbortSignal, solo = false) {
     transactions: transactions.items,
     unread: notifications.notifications.filter((item) => !item.readAt).length,
     categories,
+    wallets,
   };
 }

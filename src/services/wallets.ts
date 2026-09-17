@@ -7,6 +7,7 @@ import {
 } from "./errors";
 
 export type WalletType = "cash" | "bank" | "e_wallet" | "other";
+export type WalletAllocationDirection = "to_wallet" | "to_unallocated";
 
 export type WalletRow = {
   id: string;
@@ -83,22 +84,85 @@ type TransferWalletInput = {
   idempotencyKey: string;
 };
 
-const walletBalanceSql = `w.initial_balance + COALESCE((
+export type WalletAllocationDetail = {
+  id: string;
+  ownerUserId: string;
+  walletId: string;
+  direction: WalletAllocationDirection;
+  amount: number;
+  description: string | null;
+  createdAt: string;
+};
+
+export type WalletOverview = {
+  ownerUserId: string;
+  cashBalance: number;
+  walletBalance: number;
+  unallocatedBalance: number;
+};
+
+type WalletAllocationRow = {
+  id: string;
+  owner_user_id: string;
+  wallet_id: string;
+  direction: WalletAllocationDirection;
+  amount: number;
+  description: string | null;
+  created_at: string;
+};
+
+type WalletOverviewRow = {
+  owner_user_id: string;
+  cash_balance: number;
+  wallet_balance: number;
+};
+
+const walletBalanceSqlFor = (
+  walletAlias: string,
+) => `${walletAlias}.initial_balance + COALESCE((
   SELECT SUM(CASE
-    WHEN t.type = 'income' AND t.wallet_id = w.id THEN t.amount
-    WHEN t.type IN ('expense', 'saving_deposit') AND t.wallet_id = w.id THEN -t.amount
-    WHEN t.type = 'saving_withdrawal' AND t.wallet_id = w.id THEN t.amount
-    WHEN t.type = 'wallet_transfer' AND t.source_wallet_id = w.id THEN -t.amount
-    WHEN t.type = 'wallet_transfer' AND t.destination_wallet_id = w.id THEN t.amount
+    WHEN t.type = 'income' AND t.wallet_id = ${walletAlias}.id THEN t.amount
+    WHEN t.type IN ('expense', 'saving_deposit') AND t.wallet_id = ${walletAlias}.id THEN -t.amount
+    WHEN t.type = 'saving_withdrawal' AND t.wallet_id = ${walletAlias}.id THEN t.amount
+    WHEN t.type = 'wallet_transfer' AND t.source_wallet_id = ${walletAlias}.id THEN -t.amount
+    WHEN t.type = 'wallet_transfer' AND t.destination_wallet_id = ${walletAlias}.id THEN t.amount
     ELSE 0
   END)
   FROM transactions t
   WHERE t.deleted_at IS NULL
     AND (
-      t.wallet_id = w.id
-      OR t.source_wallet_id = w.id
-      OR t.destination_wallet_id = w.id
+      t.wallet_id = ${walletAlias}.id
+      OR t.source_wallet_id = ${walletAlias}.id
+      OR t.destination_wallet_id = ${walletAlias}.id
     )
+), 0) + COALESCE((
+  SELECT SUM(CASE
+    WHEN a.direction = 'to_wallet' THEN a.amount
+    WHEN a.direction = 'to_unallocated' THEN -a.amount
+    ELSE 0
+  END)
+  FROM wallet_balance_allocations a
+  WHERE a.wallet_id = ${walletAlias}.id
+), 0)`;
+
+const walletBalanceSql = walletBalanceSqlFor("w");
+
+const cashBalanceSqlFor = (ownerSql: string) => `COALESCE((
+  SELECT SUM(CASE
+    WHEN t.type = 'income' THEN t.amount
+    WHEN t.type = 'expense' THEN -t.amount
+    WHEN t.type = 'saving_deposit' THEN -t.amount
+    WHEN t.type = 'saving_withdrawal' THEN t.amount
+    ELSE 0
+  END)
+  FROM transactions t
+  WHERE t.owner_user_id = ${ownerSql} AND t.deleted_at IS NULL
+), 0)`;
+
+const ownerWalletBalanceSqlFor = (ownerSql: string) => `COALESCE((
+  SELECT SUM(${walletBalanceSqlFor("w")})
+  FROM wallets w
+  WHERE w.owner_user_id = ${ownerSql}
 ), 0)`;
 
 const walletSelect = `SELECT
@@ -179,6 +243,29 @@ function serializeWalletTransfer(row: WalletTransferRow): WalletTransferDetail {
   };
 }
 
+function serializeWalletAllocation(
+  row: WalletAllocationRow,
+): WalletAllocationDetail {
+  return {
+    id: row.id,
+    ownerUserId: row.owner_user_id,
+    walletId: row.wallet_id,
+    direction: row.direction,
+    amount: row.amount,
+    description: row.description,
+    createdAt: row.created_at,
+  };
+}
+
+function serializeWalletOverview(row: WalletOverviewRow): WalletOverview {
+  return {
+    ownerUserId: row.owner_user_id,
+    cashBalance: row.cash_balance,
+    walletBalance: row.wallet_balance,
+    unallocatedBalance: row.cash_balance - row.wallet_balance,
+  };
+}
+
 export async function listWallets(
   database: D1Database,
   filters: { ownerUserId?: string; includeArchived?: boolean } = {},
@@ -207,6 +294,44 @@ export async function listWallets(
     .all<WalletRow>();
 
   return results.map(serializeWallet);
+}
+
+export async function listWalletOverviews(
+  database: D1Database,
+): Promise<WalletOverview[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT
+         u.id AS owner_user_id,
+         ${cashBalanceSqlFor("u.id")} AS cash_balance,
+         ${ownerWalletBalanceSqlFor("u.id")} AS wallet_balance
+       FROM users u
+       WHERE u.is_active = 1
+       ORDER BY u.id`,
+    )
+    .all<WalletOverviewRow>();
+
+  return results.map(serializeWalletOverview);
+}
+
+export async function getWalletOverview(
+  database: D1Database,
+  ownerUserId: string,
+): Promise<WalletOverview> {
+  const row = await database
+    .prepare(
+      `SELECT
+         u.id AS owner_user_id,
+         ${cashBalanceSqlFor("u.id")} AS cash_balance,
+         ${ownerWalletBalanceSqlFor("u.id")} AS wallet_balance
+       FROM users u
+       WHERE u.id = ?1 AND u.is_active = 1
+       LIMIT 1`,
+    )
+    .bind(ownerUserId)
+    .first<WalletOverviewRow>();
+  if (!row) throw new NotFoundError("Pengguna tidak ditemukan.");
+  return serializeWalletOverview(row);
 }
 
 export async function getWallet(
@@ -304,13 +429,17 @@ export async function createWallet(
     input.defaultWallet ||
     !(await hasActiveWallet(database, input.ownerUserId));
   const now = new Date().toISOString();
+  const initialAllocation = input.initialBalance ?? 0;
   const insert = database
     .prepare(
       `INSERT INTO wallets (
          id, owner_user_id, type, name, normalized_name, description,
          icon, color, group_name, initial_balance, default_wallet,
          sort_order, created_at, updated_at
-       ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`,
+       ) SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, 0, ?10, ?11, ?12
+       WHERE ?13 = 0 OR (
+         ${cashBalanceSqlFor("?2")} - ${ownerWalletBalanceSqlFor("?2")} >= ?13
+       )`,
     )
     .bind(
       id,
@@ -322,29 +451,58 @@ export async function createWallet(
       normalizeText(input.icon),
       normalizeColor(input.color),
       normalizeText(input.groupName) ?? defaultGroup(input.type),
-      input.initialBalance ?? 0,
-      shouldBeDefault ? 1 : 0,
       input.sortOrder ?? 0,
       now,
       now,
+      initialAllocation,
     );
 
   try {
+    const statements = [insert];
     if (shouldBeDefault) {
-      await database.batch([
+      statements.push(
         database
           .prepare(
             `UPDATE wallets
              SET default_wallet = 0, updated_at = ?1
-             WHERE owner_user_id = ?2 AND default_wallet = 1`,
+             WHERE owner_user_id = ?2 AND default_wallet = 1
+               AND EXISTS (SELECT 1 FROM wallets WHERE id = ?3)`,
           )
-          .bind(now, input.ownerUserId),
-        insert,
-      ]);
-    } else {
-      await insert.run();
+          .bind(now, input.ownerUserId, id),
+        database
+          .prepare(
+            `UPDATE wallets
+             SET default_wallet = 1, updated_at = ?1
+             WHERE id = ?2 AND owner_user_id = ?3`,
+          )
+          .bind(now, id, input.ownerUserId),
+      );
+    }
+    if (initialAllocation > 0) {
+      statements.push(
+        database
+          .prepare(
+            `INSERT INTO wallet_balance_allocations (
+               id, owner_user_id, wallet_id, direction, amount, description, created_at
+             )
+             SELECT ?1, ?2, ?3, 'to_wallet', ?4, NULL, ?5
+             FROM wallets WHERE id = ?3 AND owner_user_id = ?2`,
+          )
+          .bind(
+            crypto.randomUUID(),
+            input.ownerUserId,
+            id,
+            initialAllocation,
+            now,
+          ),
+      );
+    }
+    const results = await database.batch(statements);
+    if (results[0]?.meta.changes !== 1) {
+      throw new InsufficientBalanceError("Saldo tanpa dompet tidak mencukupi.");
     }
   } catch (error) {
+    if (error instanceof InsufficientBalanceError) throw error;
     if (isConstraintError(error)) {
       throw new ConflictError("Nama dompet sudah digunakan.");
     }
@@ -356,6 +514,103 @@ export async function createWallet(
     throw new NotFoundError("Dompet tidak ditemukan setelah dibuat.");
   }
   return wallet;
+}
+
+export async function createWalletAllocation(
+  database: D1Database,
+  input: {
+    ownerUserId: string;
+    walletId: string;
+    direction: WalletAllocationDirection;
+    amount: number;
+    description?: string | null;
+  },
+): Promise<{
+  allocation: WalletAllocationDetail;
+  wallet: WalletDetail;
+  overview: WalletOverview;
+}> {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const description = normalizeText(input.description);
+  const result = await database
+    .prepare(
+      `INSERT INTO wallet_balance_allocations (
+         id, owner_user_id, wallet_id, direction, amount, description, created_at
+       )
+       SELECT ?1, ?2, target.id, ?4, ?5, ?6, ?7
+       FROM wallets target
+       WHERE target.id = ?3
+         AND target.owner_user_id = ?2
+         AND target.is_archived = 0
+         AND (
+           (?4 = 'to_wallet' AND
+             ${cashBalanceSqlFor("?2")} - ${ownerWalletBalanceSqlFor("?2")} >= ?5)
+           OR
+           (?4 = 'to_unallocated' AND ${walletBalanceSqlFor("target")} >= ?5)
+         )`,
+    )
+    .bind(
+      id,
+      input.ownerUserId,
+      input.walletId,
+      input.direction,
+      input.amount,
+      description,
+      now,
+    )
+    .run();
+
+  if (result.meta.changes !== 1) {
+    if (
+      !(await canUseActiveWallet(database, input.walletId, input.ownerUserId))
+    ) {
+      throw new NotFoundError("Dompet tidak ditemukan.");
+    }
+    throw new InsufficientBalanceError(
+      input.direction === "to_wallet"
+        ? "Saldo tanpa dompet tidak mencukupi."
+        : "Saldo dompet tidak mencukupi.",
+    );
+  }
+
+  const allocation = await database
+    .prepare(
+      `SELECT id, owner_user_id, wallet_id, direction, amount, description, created_at
+       FROM wallet_balance_allocations
+       WHERE id = ?1 LIMIT 1`,
+    )
+    .bind(id)
+    .first<WalletAllocationRow>();
+  const wallet = await getWallet(database, input.walletId);
+  if (!allocation || !wallet) {
+    throw new NotFoundError("Alokasi saldo tidak ditemukan setelah dibuat.");
+  }
+
+  return {
+    allocation: serializeWalletAllocation(allocation),
+    wallet,
+    overview: await getWalletOverview(database, input.ownerUserId),
+  };
+}
+
+export async function listWalletAllocations(
+  database: D1Database,
+  walletId: string,
+): Promise<WalletAllocationDetail[]> {
+  if (!(await getWallet(database, walletId))) {
+    throw new NotFoundError("Dompet tidak ditemukan.");
+  }
+  const { results } = await database
+    .prepare(
+      `SELECT id, owner_user_id, wallet_id, direction, amount, description, created_at
+       FROM wallet_balance_allocations
+       WHERE wallet_id = ?1
+       ORDER BY created_at DESC, id DESC`,
+    )
+    .bind(walletId)
+    .all<WalletAllocationRow>();
+  return results.map(serializeWalletAllocation);
 }
 
 export async function updateWallet(
@@ -562,8 +817,12 @@ export async function deleteWallet(
   const related = await database
     .prepare(
       `SELECT COUNT(*) AS total
-       FROM transactions
-       WHERE wallet_id = ?1 OR source_wallet_id = ?1 OR destination_wallet_id = ?1`,
+       FROM (
+         SELECT id FROM transactions
+         WHERE wallet_id = ?1 OR source_wallet_id = ?1 OR destination_wallet_id = ?1
+         UNION ALL
+         SELECT id FROM wallet_balance_allocations WHERE wallet_id = ?1
+       ) related`,
     )
     .bind(input.walletId)
     .first<{ total: number }>();
@@ -578,10 +837,13 @@ export async function deleteWallet(
     .prepare(
       `DELETE FROM wallets
        WHERE id = ?1 AND owner_user_id = ?2 AND initial_balance = 0
-         AND NOT EXISTS (
-           SELECT 1 FROM transactions
-           WHERE wallet_id = ?1 OR source_wallet_id = ?1 OR destination_wallet_id = ?1
-         )`,
+          AND NOT EXISTS (
+            SELECT 1 FROM transactions
+            WHERE wallet_id = ?1 OR source_wallet_id = ?1 OR destination_wallet_id = ?1
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM wallet_balance_allocations WHERE wallet_id = ?1
+          )`,
     )
     .bind(input.walletId, input.ownerUserId)
     .run();
