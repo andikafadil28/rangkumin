@@ -9,13 +9,13 @@
 - Production: `https://rangkumin.dikadevit.my.id`.
 - Demo publik: `https://demo.rangkumin.dikadevit.my.id`.
 - Repository: `https://github.com/andikafadil28/rangkumin`.
-- Release terbaru: `v1.0.1` (`https://github.com/andikafadil28/rangkumin/releases/tag/v1.0.1`).
+- Release terbaru: `v1.0.2` (`https://github.com/andikafadil28/rangkumin/releases/tag/v1.0.2`).
 - Author: Andika Fadil (`@andikafadil28`).
 - Donasi: `https://buymeacoffee.com/dikadev`.
 
 # CURRENT
 
-**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Mode warna otomatis/terang/gelap, filter transaksi lanjutan, Dashboard Insights, dan **fitur Dompet (wallets)** sudah di-deploy ke production, remote development, dan demo (migration `0010_add_wallets.sql`, backend `src/routes|services|schemas/wallet`, `WalletsPage.tsx`, selector dompet di form transaksi, integrasi tabungan/ownership, adapter demo). **Telegram tetap non-aktif**: hanya kandidat add-on opsional (infrastruktur historis dipertahankan), tanpa implementasi baru. GitHub Release terbaru `v1.0.1` pada commit `e50494d`. Demo publik frontend-only tetap aktif sebagai Static Assets terpisah tanpa binding backend.
+**Phase 1–9, 11, dan 12 selesai; Phase 10 Google Sheets ditunda.** Mode warna otomatis/terang/gelap, filter transaksi lanjutan, Dashboard Insights, dan **fitur Dompet (wallets)** sudah di-deploy ke production, remote development, dan demo (migration `0010_add_wallets.sql`, backend `src/routes|services|schemas/wallet`, `WalletsPage.tsx`, selector dompet di form transaksi, integrasi tabungan/ownership, adapter demo). **Telegram tetap non-aktif**: hanya kandidat add-on opsional (infrastruktur historis dipertahankan), tanpa implementasi baru. GitHub Release terbaru `v1.0.2` pada commit `906d66e`. Demo publik frontend-only tetap aktif sebagai Static Assets terpisah tanpa binding backend.
 
 Sesi aktif: fitur saldo virtual **Tanpa dompet** dan allocation ledger dua arah selesai serta sudah di-deploy. `0012_add_wallet_balance_allocations.sql` menyimpan allocation immutable; saldo tersedia tetap canonical dari transaksi dan Tanpa dompet dihitung sebagai total tersedia dikurangi seluruh saldo wallet. UI menambah kartu virtual, dialog alokasi/reversal, histori, breakdown dashboard, selector wallet tabungan, dan grid wallet horizontal desktop. Commit fitur `906d66e`; migration diterapkan lokal/development/production; smoke production dan demo hijau.
 
